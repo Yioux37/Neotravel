@@ -8,7 +8,7 @@ import { MapPanel } from "./map/MapPanel";
 
 type MobileView = "chat" | "carte";
 
-export function DevisShell() {
+export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
   const {
     messages,
     itineraire,
@@ -17,7 +17,7 @@ export function DevisShell() {
     setSelectedEtapeId,
     sendMessage,
     confirmVehicule,
-  } = useDevis();
+  } = useDevis(initialQuery);
 
   const [view, setView] = useState<MobileView>("chat");
   const isSending = status === "sending";
@@ -41,7 +41,6 @@ export function DevisShell() {
       </div>
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,440px)_1fr]">
-        {/* Gauche : chat */}
         <section
           className={`min-h-0 ${view === "chat" ? "block" : "hidden"} lg:block lg:border-r lg:border-line`}
         >
@@ -53,7 +52,6 @@ export function DevisShell() {
           />
         </section>
 
-        {/* Droite : carte */}
         <section className={`min-h-0 ${view === "carte" ? "block" : "hidden"} lg:block`}>
           <MapPanel
             itineraire={itineraire}

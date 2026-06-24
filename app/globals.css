@@ -23,7 +23,11 @@
   --color-signal: #2f8f6b;
 
   /* ---- DA v2 (funnel /devis) ---- */
-  --color-night: #0f1115;       /* slate-950 : header, hero, bulles user */
+  /* On aligne le slate-950 de Tailwind sur la valeur DA (#0f1115 au lieu de
+     #020617) pour que la landing (bg-slate-950) et le funnel (bg-night)
+     partagent exactement le même noir. */
+  --color-slate-950: #0f1115;
+  --color-night: #0f1115;       /* alias sémantique utilisé par le funnel */
   --color-night-soft: #1a1d24;  /* surfaces sombres secondaires */
   --color-cloud: #f7f6f3;       /* off-white premium (fond principal v2) */
   --color-gray50: #f9fafb;

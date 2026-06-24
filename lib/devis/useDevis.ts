@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   DevisChatMessage,
   Devis,
@@ -17,27 +17,35 @@ function makeId() {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-// Fil initial : un message + le sélecteur de véhicule injecté, pour montrer
-// d'emblée le principe "formulaires dans la conversation" (cf. DA §5).
-const INITIAL_MESSAGES: DevisChatMessage[] = [
-  {
-    id: "greeting",
-    role: "assistant",
-    kind: "text",
-    content:
-      "Voici votre trajet à droite. Choisissez un véhicule, ou précisez date et nombre de passagers — la carte se met à jour en direct.",
-    createdAt: Date.now(),
-  },
-  { id: "ask-vehicule", role: "assistant", kind: "vehicule", createdAt: Date.now() },
-];
+const GREETING: DevisChatMessage = {
+  id: "greeting",
+  role: "assistant",
+  kind: "text",
+  content:
+    "Voici votre trajet à droite. Choisissez un véhicule, ou précisez date et nombre de passagers — la carte se met à jour en direct.",
+  createdAt: Date.now(),
+};
+
+// Sans demande pré-remplie, on injecte d'emblée le sélecteur de véhicule
+// (principe "formulaires dans la conversation", DA §5). Avec une demande
+// venue de la landing, on laisse l'agent répondre d'abord.
+function initialMessages(hasQuery: boolean): DevisChatMessage[] {
+  if (hasQuery) return [GREETING];
+  return [
+    GREETING,
+    { id: "ask-vehicule", role: "assistant", kind: "vehicule", createdAt: Date.now() },
+  ];
+}
 
 /**
  * Source de vérité unique du funnel : un même état alimente le chat (gauche)
  * et la carte (droite). Le calcul reste chez n8n ; ici on n'orchestre que
  * l'affichage et la sélection.
  */
-export function useDevis() {
-  const [messages, setMessages] = useState<DevisChatMessage[]>(INITIAL_MESSAGES);
+export function useDevis(initialQuery: string | null = null) {
+  const [messages, setMessages] = useState<DevisChatMessage[]>(() =>
+    initialMessages(Boolean(initialQuery)),
+  );
   const [itineraire, setItineraire] = useState<Itineraire>(DEMO_ITINERAIRE);
   const [status, setStatus] = useState<Status>("idle");
   const [selectedEtapeId, setSelectedEtapeId] = useState<string | null>(null);
@@ -84,7 +92,6 @@ export function useDevis() {
         const data = (await res.json()) as StructuredChatResponse;
 
         if (data.reply) pushText("assistant", data.reply);
-        // La carte suit les données structurées renvoyées par n8n.
         if (data.itineraire) setItineraire(data.itineraire);
         if (data.devis) pushDevisCard(data.devis);
 
@@ -100,11 +107,20 @@ export function useDevis() {
     [status, pushText, pushDevisCard],
   );
 
+  // Amorçage : si la landing a transmis une demande (?q=), on l'envoie une fois.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (initialQuery && !seeded.current) {
+      seeded.current = true;
+      void sendMessage(initialQuery);
+    }
+  }, [initialQuery, sendMessage]);
+
   /**
    * Confirmation d'un véhicule via le composant injecté.
    * ⚠️ DÉMO : le devis ci-dessous est un exemple statique pour la soutenance.
-   * En production, ces montants viennent de n8n (nœud calculer_devis) via
-   * la réponse structurée { devis } — ne pas chiffrer côté front.
+   * En production, ces montants viennent de n8n (nœud calculer_devis) via la
+   * réponse structurée { devis } — ne pas chiffrer côté front.
    */
   const confirmVehicule = useCallback(
     (label: string) => {

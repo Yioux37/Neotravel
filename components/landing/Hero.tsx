@@ -1,54 +1,39 @@
-import { ChatPanel } from "@/components/chat/ChatPanel";
+import { Sparkles } from "lucide-react";
+import { HeroSearchBox } from "./HeroSearchBox";
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      {/* Halo discret derrière le chat */}
+    <section className="relative overflow-hidden bg-slate-950 px-6 pb-32 pt-16 text-center md:px-8">
+      {/* Visuel d'ambiance + dégradés de lisibilité */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-24 right-0 h-[36rem] w-[36rem] rounded-full bg-route/10 blur-3xl"
+        className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1600&h=1200&fit=crop')] bg-cover bg-center opacity-25"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/60 to-slate-950"
       />
 
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-2 lg:gap-16 lg:py-24">
-        {/* Colonne texte — la "thèse" : un trajet devient un prix */}
-        <div className="max-w-xl">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-route-deep">
-            Devis autocar en ligne
-          </p>
+      <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center">
+        <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-gray-900/80 px-4 py-1.5 text-xs font-semibold text-lime-400 backdrop-blur-sm">
+          <Sparkles className="h-3.5 w-3.5 animate-pulse" aria-hidden /> Autocars
+          · pilotés par l&apos;IA
+        </span>
 
-          <h1 className="mt-4 font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink sm:text-5xl">
-            De votre point de départ
-            <br />
-            à votre devis,
-            <span className="text-route-deep"> en une conversation.</span>
-          </h1>
+        <h1 className="mb-4 text-5xl font-extrabold leading-[1.1] tracking-tight text-white md:text-7xl">
+          Votre voyage. Planifié en quelques minutes.
+        </h1>
+        <p className="mb-10 max-w-2xl text-lg text-gray-300 md:text-xl">
+          Prix en direct, tout au même endroit, et un expert humain quand vous
+          en avez besoin.
+        </p>
 
-          {/* Signature : la ligne d'itinéraire départ ● — — ● destination */}
-          <div className="route-line mt-7 max-w-sm" aria-hidden>
-            <span className="route-track route-track--animated" />
-          </div>
-          <div className="mt-2 flex max-w-sm justify-between font-mono text-xs text-slate">
-            <span>Départ</span>
-            <span>Devis PDF</span>
-          </div>
+        <HeroSearchBox />
 
-          <p className="mt-7 text-lg leading-relaxed text-slate">
-            Pas de formulaire à rallonge. Décrivez votre trajet à l&apos;agent
-            NeoTravel&nbsp;: il calcule le tarif, prépare le devis et vous
-            l&apos;envoie. Vous gardez la main, à l&apos;écrit.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-mono text-sm text-ink">
-            <span>● Réponse immédiate</span>
-            <span>● Devis chiffré</span>
-            <span>● PDF par e-mail</span>
-          </div>
-        </div>
-
-        {/* Colonne chat — la démo vivante, pas une capture */}
-        <div className="lg:pl-6">
-          <ChatPanel />
-        </div>
+        <p className="mt-8 flex items-center gap-1.5 text-xs font-medium text-gray-400">
+          Découvrez comment l&apos;assistant vous aide
+          <span className="animate-bounce">↓</span>
+        </p>
       </div>
     </section>
   );

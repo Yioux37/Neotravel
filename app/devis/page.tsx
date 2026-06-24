@@ -8,12 +8,19 @@ export const metadata: Metadata = {
     "Construisez votre devis autocar en conversation. L'itinéraire et les contraintes RSE s'affichent en temps réel.",
 };
 
-// Funnel immersif : occupe tout l'écran, aucune distraction, pas de footer.
-export default function DevisPage() {
+// Next 16 : searchParams est asynchrone. On récupère la demande pré-remplie
+// depuis la landing (?q=...) pour amorcer la conversation.
+export default async function DevisPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <DevisHeader />
-      <DevisShell />
+      <DevisShell initialQuery={q ?? null} />
     </div>
   );
 }
