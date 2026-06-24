@@ -29,8 +29,8 @@ export function RouteMap({ itineraire, selectedId, onSelect, onRouteUpdate }: Ro
   const itineraireAvecGPS = {
     ...itineraire,
     etapes: itineraire.etapes.map((etape) => {
-      let lat = (etape as any).lat || 46.2276; 
-      let lng = (etape as any).lng || 2.2137;
+      let lat = etape.lat || 46.2276; 
+      let lng = etape.lng || 2.2137;
 
       const labelLower = etape.label.toLowerCase();
       if (labelLower.includes("paris")) { lat = 48.8566; lng = 2.3522; }
