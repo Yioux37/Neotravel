@@ -37,7 +37,7 @@ function VehiculeCard({ v }: { v: Vehicule }) {
           </p>
         </div>
         <Link
-          href="/devis"
+          href={v.href}
           className="mt-6 flex w-max items-center gap-2 text-sm font-bold text-gray-900 transition-colors hover:text-lime-600"
         >
           Découvrir

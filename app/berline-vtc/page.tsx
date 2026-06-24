@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import LandingHeader from "@/components/landing/LandingHeader";
-import LandingFooter from "@/components/landing/LandingFooter";
+import { LandingHeader } from "@/components/landing/LandingHeader";
+import { LandingFooter } from "@/components/landing/LandingFooter";
 
 export default function BerlinePage() {
   return (

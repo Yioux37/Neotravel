@@ -2,8 +2,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Check, ArrowRight } from "lucide-react";
-import LandingHeader from "@/components/landing/LandingHeader";
-import LandingFooter from "@/components/landing/LandingFooter";
+import { LandingHeader } from "@/components/landing/LandingHeader";
+import { LandingFooter } from "@/components/landing/LandingFooter";
 
 export default function AutocarPage() {
   return (
