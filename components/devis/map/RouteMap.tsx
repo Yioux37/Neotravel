@@ -4,7 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { Itineraire } from "@/lib/devis/types";
 
-const WorldMap = dynamic(() => import("./WorldMap.tsx"), {
+const WorldMap = dynamic(() => import("./WorldMap"), {
   ssr: false,
   loading: () => (
     <div className="flex h-full min-h-[600px] w-full items-center justify-center rounded-2xl bg-[#f8faf9] border border-slate-100">
