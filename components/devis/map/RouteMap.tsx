@@ -1,56 +1,68 @@
 "use client";
 
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import type { Itineraire } from "@/lib/devis/types";
-import { TRACE_COLOR } from "./etapeStyle";
 
-/**
- * Tracé vectoriel reliant les étapes. viewBox 0..100 + preserveAspectRatio="none"
- * pour que les coordonnées 0..100 des étapes correspondent exactement aux
- * marqueurs HTML positionnés en %. vector-effect évite la déformation du trait.
- */
-export function RouteMap({ itineraire }: { itineraire: Itineraire }) {
-  const { etapes, type } = itineraire;
-  if (etapes.length < 2) return null;
+const WorldMap = dynamic(() => import("./WorldMap.tsx"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full min-h-[600px] w-full items-center justify-center rounded-2xl bg-[#f8faf9] border border-slate-100">
+      <span className="text-sm font-medium text-slate-500">Chargement de la carte...</span>
+    </div>
+  ),
+});
 
-  const points = etapes.map((e) => `${e.x},${e.y}`);
-  // Circuit : on referme la boucle vers le départ.
-  const d =
-    "M " +
-    points.join(" L ") +
-    (type === "circuit" ? ` L ${etapes[0].x},${etapes[0].y}` : "");
+interface RouteMapProps {
+  itineraire: Itineraire;
+}
 
-  const color = TRACE_COLOR[type];
+export function RouteMap({ itineraire }: RouteMapProps) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  if (itineraire.etapes.length < 2) return null;
+
+  // --- HACK TEMPORAIRE POUR VOIR LES POINTS ---
+  // On crée une copie de l'itinéraire en forçant des coordonnées GPS 
+  // en fonction du nom de la ville (label)
+  const itineraireAvecGPS = {
+    ...itineraire,
+    etapes: itineraire.etapes.map((etape) => {
+      // Regarde ce qu'il y a dans l'étape dans ta console
+      console.log("Étape brute :", etape);
+
+      let lat = 46.2276; // Centre de la France par défaut
+      let lng = 2.2137;
+
+      const labelLower = etape.label.toLowerCase();
+      if (labelLower.includes("paris")) { lat = 48.8566; lng = 2.3522; }
+      else if (labelLower.includes("beaune")) { lat = 47.0260; lng = 4.8390; }
+      else if (labelLower.includes("lyon")) { lat = 45.7640; lng = 4.8357; }
+      else if (labelLower.includes("marseille")) { lat = 43.2965; lng = 5.3698; }
+      else if (labelLower.includes("bordeaux")) { lat = 44.8378; lng = -0.5792; }
+
+      // On retourne l'étape avec les propriétés lat et lng ajoutées
+      return { ...etape, lat, lng };
+    })
+  };
+  // ---------------------------------------------
 
   return (
-    <svg
-      className="absolute inset-0 h-full w-full"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      aria-hidden
-    >
-      {/* Halo doux sous le tracé */}
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.12}
-        vectorEffect="non-scaling-stroke"
+    <div className="relative h-full min-h-[600px] w-full overflow-hidden rounded-2xl bg-[#f8faf9] shadow-inner">
+      
+      {/* On passe notre itineraire modifié avec les GPS à la carte */}
+      <WorldMap 
+        itineraire={itineraireAvecGPS} 
+        selectedId={selectedId} 
+        onSelect={setSelectedId} 
       />
-      {/* Tracé pointillé animé */}
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray="6 8"
-        vectorEffect="non-scaling-stroke"
-        className="animate-dash"
-      />
-    </svg>
+
+      <div className="absolute bottom-8 left-1/2 z-[1000] -translate-x-1/2 pointer-events-none">
+        <div className="whitespace-nowrap rounded-full bg-[#334155]/95 px-5 py-2.5 text-[14px] font-medium text-white shadow-xl backdrop-blur-md transition-all">
+          Cliquez un point d'arrêt pour la règle RSE
+        </div>
+      </div>
+      
+    </div>
   );
 }

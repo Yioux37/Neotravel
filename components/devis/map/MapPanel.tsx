@@ -57,13 +57,7 @@ export function MapPanel({
       {/* Carte : tracé SVG + marqueurs HTML alignés sur le même repère 0..100 */}
       <div className="absolute inset-0">
         <RouteMap itineraire={itineraire} />
-        {itineraire.etapes.map((etape) => (
-          <MapMarker
-            key={etape.id}
-            etape={etape}
-            selected={selectedEtapeId === etape.id}
-            onSelect={onSelectEtape}
-          />
+        {itineraire.etapes.map((etape) => (""
         ))}
       </div>
 
