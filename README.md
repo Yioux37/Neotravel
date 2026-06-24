@@ -10,7 +10,7 @@ un cerveau : il ne contient **aucune logique métier**. Tout le calcul (pricing,
 RSE, PDF, CRM, relances) vit dans **n8n**.
 
 ```
-Prospect ──> Front Next.js ──(webhook)──> n8n (Agent IA + outils) ──> Airtable
+Prospect ──> Front Next.js ──(webhook)──> (Agent IA + outils) ──> Airtable
                   │                              │
             /api/chat (proxy)        Lookup · calculer_devis · PDF · CRM · relance
 ```
