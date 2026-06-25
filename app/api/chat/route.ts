@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
         ...(process.env.N8N_WEBHOOK_SECRET
           ? { "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET }
           : {}),
