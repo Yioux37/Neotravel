@@ -5,7 +5,7 @@ import { ChevronDown, Check, ArrowRight } from "lucide-react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 
-export default function AutocarDoubleEtagePage() {
+export default function MinibusPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const toggleFaq = (index: number) => setOpenFaq(openFaq === index ? null : index);
 
@@ -16,23 +16,23 @@ export default function AutocarDoubleEtagePage() {
         <section className="relative pt-24 pb-32">
           <div className="absolute inset-0 z-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://www.autocar-location.com/wp-content/themes/autocar-theme/assets/images/autocar-double-etage.jpg" alt="Autocar double étage" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gray-900/75"></div>
+            <img src="https://www.autocar-location.com/wp-content/themes/autocar-theme/assets/images/minibus.jpg" alt="Minibus" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gray-900/70"></div>
           </div>
           <div className="relative z-10 mx-auto max-w-6xl px-6">
             <nav className="text-xs text-gray-300 mb-6 flex items-center gap-2">
               <Link href="/" className="hover:text-white transition-colors">Accueil</Link>
-              <span>»</span><span className="text-white font-medium">Autocar double étage</span>
+              <span>»</span><span className="text-white font-medium">Minibus</span>
             </nav>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-lime-400 mb-4 backdrop-blur-sm border border-white/10">
               <span className="h-1.5 w-1.5 rounded-full bg-lime-400" /> Notre flotte
             </span>
             <div className="max-w-3xl">
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">Autocar double étage</h1>
-              <p className="text-lg text-gray-200 leading-relaxed mb-8">L'autocar double étage maximise la capacité pour les très grands groupes avec une organisation unique.</p>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">Minibus</h1>
+              <p className="text-lg text-gray-200 leading-relaxed mb-8">La location de minibus avec chauffeur convient aux petits groupes qui veulent un trajet souple, confortable et facile à organiser.</p>
             </div>
             <div className="flex flex-wrap gap-3 mb-10">
-              {["Jusqu'à 93 places", "Très grands groupes", "Accès vérifiés"].map((tag) => (
+              {["8 à 25 places", "Chauffeur inclus", "Idéal navettes"].map((tag) => (
                 <span key={tag} className="rounded-md bg-black/40 backdrop-blur-md px-4 py-2 text-sm font-medium text-white border border-white/20">{tag}</span>
               ))}
             </div>
@@ -47,17 +47,17 @@ export default function AutocarDoubleEtagePage() {
           <div className="lg:col-span-2 space-y-10">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-lime-600 block mb-2">Guide véhicule</span>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">Quand choisir un autocar double étage ?</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Quand choisir un minibus ?</h2>
               <div className="text-gray-600 space-y-4 leading-relaxed text-lg">
-                <p>La location d'autocar double étage avec chauffeur s'adresse aux groupes qui veulent transporter jusqu'à 90 voyageurs environ dans un seul véhicule, lorsque le trajet et les accès le permettent. C'est une option utile pour les scolaires, grands événements, supporters, associations, CE et départs longue distance.</p>
-                <p>Le double étage est pertinent quand l'objectif principal est la capacité. Il doit cependant être validé selon les accès, la hauteur, les zones de dépose et le volume de bagages. Le commercial vérifie ces points avant de confirmer la solution.</p>
+                <p>Le minibus est le format le plus agile de la flotte. Il facilite les transferts urbains, les navettes gare ou aéroport, les déplacements professionnels et les sorties associatives avec un groupe réduit. Vous gardez le confort d'un transport privé avec chauffeur, sans mobiliser un grand autocar lorsque la capacité n'est pas nécessaire.</p>
+                <p>Choisissez un minibus lorsque votre priorité est la flexibilité : accès plus simple en centre-ville, embarquement rapide, trajet court ou moyen, horaires précis et groupe qui voyage ensemble. Pour un séjour avec beaucoup de bagages ou plus de 25 voyageurs, le minicar devient souvent plus pertinent.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { title: "Capacité", value: "Jusqu'à 93", desc: "Pour limiter le nombre de véhicules sur les gros volumes." },
-                { title: "Validation", value: "Accès", desc: "Hauteur, dépose et stationnement doivent être confirmés." },
-                { title: "Organisation", value: "Groupe", desc: "Un seul véhicule peut simplifier les horaires et l'encadrement." }
+                { title: "Capacité", value: "8 à 25", desc: "Pour voyager ensemble sans surdimensionner le véhicule." },
+                { title: "Trajets", value: "Souples", desc: "Centres-villes, gares, aéroports, hôtels et sites événementiels." },
+                { title: "Bagages", value: "À vérifier", desc: "Le conseiller confirme le volume selon le modèle disponible." }
               ].map((item, idx) => (
                 <div key={idx} className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
                   <span className="text-xs font-bold text-lime-600 block mb-2 uppercase tracking-wider">{item.title}</span>
@@ -71,10 +71,10 @@ export default function AutocarDoubleEtagePage() {
             <h3 className="text-xl font-bold text-gray-900 mb-6">Préparer votre devis</h3>
             <div className="space-y-5 mb-8">
               {[
-                { label: "Capacité", val: "Jusqu'à 93 places, selon configuration et disponibilité" },
-                { label: "Idéal pour", val: "très grands groupes et événements" },
-                { label: "Trajets", val: "longue distance, axes accessibles" },
-                { label: "Bagages", val: "volume à vérifier selon modèle" }
+                { label: "Capacité", val: "8 à 25 places, selon configuration et volume de bagages" },
+                { label: "Idéal pour", val: "transferts, navettes, petits groupes" },
+                { label: "Trajets", val: "local, régional, courte distance" },
+                { label: "Bagages", val: "bagages légers à modérés" }
               ].map((spec, idx) => (
                 <div key={idx} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
                   <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">{spec.label}</span>
@@ -89,14 +89,14 @@ export default function AutocarDoubleEtagePage() {
         <section className="bg-white py-20 border-y border-gray-100">
           <div className="mx-auto max-w-6xl px-6">
             <span className="text-xs font-bold uppercase tracking-wider text-lime-600 block mb-2">Usages fréquents</span>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Pour quels trajets louer un double étage ?</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Pour quels trajets louer un minibus ?</h2>
             <p className="text-lg text-gray-500 mb-10">Des cas concrets pour choisir plus vite le bon format de transport avec chauffeur.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { t: "Voyages scolaires nombreux", d: "Plusieurs classes ou gros effectifs avec un programme commun et un encadrement centralisé." },
-                { t: "Événements et supporters", d: "Acheminement de groupes importants vers stades, concerts, salons ou festivals." },
-                { t: "Grandes sorties CE", d: "Journées de parc, spectacles, week-ends ou séjours avec forte participation." },
-                { t: "Départ longue distance", d: "Solution capacitaire pour trajets sur grands axes, sous réserve de validation logistique." }
+                { t: "Transferts gares et aéroports", d: "Accueil d'équipes, collaborateurs, invités ou délégations avec horaires cadencés et point de rendez-vous clair." },
+                { t: "Navettes événementielles", d: "Rotations entre hôtel, salle de réception, salon, campus ou site d'entreprise." },
+                { t: "Sorties petits groupes", d: "Associations, clubs, familles, groupes loisirs ou équipes sportives sur une journée." },
+                { t: "Déplacements professionnels", d: "Séminaires, visites de site, réunions multi-sites et transferts clients avec chauffeur dédié." }
               ].map((usage, idx) => (
                 <div key={idx} className="rounded-2xl bg-gray-50 p-6 border border-gray-100 hover:border-lime-200 hover:shadow-md transition-all duration-300">
                   <div className="flex items-center gap-2 mb-3">
@@ -115,16 +115,16 @@ export default function AutocarDoubleEtagePage() {
             <h3 className="text-xl font-bold text-gray-900 mb-3">Informations à transmettre</h3>
             <p className="text-sm text-gray-500 mb-6">Plus la demande est précise, plus le devis peut être calé rapidement avec le bon véhicule et les bonnes contraintes chauffeur.</p>
             <ul className="space-y-4 text-sm text-gray-700 font-medium">
-              {["Adresse de prise en charge et de dépose compatibles avec la hauteur.", "Nombre de voyageurs par tranche d'âge si groupe scolaire.", "Volume de bagages pour confirmer la pertinence du double étage.", "Plan de circulation, stationnement et horaires de regroupement."].map((li, i) => (
+              {["Nombre exact de voyageurs et accompagnants.", "Volume de bagages, matériel ou poussettes.", "Adresses précises, accès, zones piétonnes et horaires.", "Besoin d'une navette en rotation ou véhicule en attente."].map((li, i) => (
                 <li key={i} className="flex items-start gap-3"><Check className="h-5 w-5 text-lime-500 shrink-0" /><span>{li}</span></li>
               ))}
             </ul>
           </div>
           <div className="rounded-3xl bg-white p-8 border border-gray-100 shadow-sm">
             <h3 className="text-xl font-bold text-gray-900 mb-3">Confort et équipements</h3>
-            <p className="text-sm text-gray-500 mb-6">Grande capacité avec confort tourisme.</p>
+            <p className="text-sm text-gray-500 mb-6">Format compact avec chauffeur professionnel.</p>
             <ul className="space-y-4 text-sm text-gray-700 font-medium">
-              {["Très grande capacité assise", "Confort tourisme selon modèle", "Équipements variables : climatisation, micro, vidéo, WC", "Organisation simplifiée pour gros effectifs"].map((li, i) => (
+              {["Climatisation selon véhicule", "Sièges confort pour trajets courts et moyens", "Soute ou coffre selon modèle", "Chauffeur professionnel"].map((li, i) => (
                 <li key={i} className="flex items-start gap-3"><Check className="h-5 w-5 text-lime-500 shrink-0" /><span>{li}</span></li>
               ))}
             </ul>
@@ -133,7 +133,7 @@ export default function AutocarDoubleEtagePage() {
             <h3 className="text-xl font-bold text-gray-900 mb-3">Ce qui influence le prix</h3>
             <p className="text-sm text-gray-500 mb-6">Le prix final dépend rarement du seul nombre de kilomètres. L'amplitude, les attentes et les contraintes terrain comptent autant.</p>
             <ul className="space-y-4 text-sm text-gray-700 font-medium">
-              {["Distance, durée de mobilisation et amplitude horaire.", "Date, saison, délai de réservation et disponibilité locale.", "Nombre d'arrêts, temps d'attente et complexité du programme.", "Péages, stationnement, accès urbains et contraintes de dépose."].map((li, i) => (
+              {["Distance, durée de mobilisation et amplitude horaire.", "Date, saison, délai de réservation et disponibilité.", "Nombre d'arrêts, temps d'attente et complexité.", "Péages, stationnement, accès urbains et dépose."].map((li, i) => (
                 <li key={i} className="flex items-start gap-3"><Check className="h-5 w-5 text-lime-500 shrink-0" /><span>{li}</span></li>
               ))}
             </ul>
@@ -171,10 +171,10 @@ export default function AutocarDoubleEtagePage() {
             </div>
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-900 font-bold">
               {[
-                "Deux classes et accompagnateurs vers un parc à thème.",
-                "Groupe de supporters vers un match national.",
-                "Grande sortie CE avec départ depuis parking relais.",
-                "Événement associatif avec un seul horaire de départ."
+                "Navette aéroport vers hôtel pour 14 participants.",
+                "Transfert équipe commerciale entre gare et séminaire.",
+                "Sortie associative d'une journée avec retour le soir.",
+                "Rotation entre parking relais et lieu d'événement."
               ].map((ex, i) => (
                 <div key={i} className="flex items-center gap-3 bg-white/40 backdrop-blur-sm px-4 py-3 rounded-xl">
                   <Check className="h-5 w-5 text-gray-900 flex-shrink-0" /><span>{ex}</span>
@@ -196,9 +196,9 @@ export default function AutocarDoubleEtagePage() {
               </thead>
               <tbody className="divide-y divide-gray-100 text-gray-700">
                 {[
-                  { name: "Minibus", cap: "8 à 25 places", ideal: "transferts, navettes, petits groupes", link: "/minibus" },
                   { name: "Minicar", cap: "25 à 35 places", ideal: "excursions, scolaires, associations", link: "/minicar" },
-                  { name: "Autocar Standard", cap: "49 à 63 places", ideal: "CE, scolaires, séminaires, circuits", link: "/autocar" },
+                  { name: "Autocar", cap: "49 à 63 places", ideal: "CE, scolaires, séminaires, circuits", link: "/autocar" },
+                  { name: "Autocar double étage", cap: "Jusqu'à 93 places", ideal: "très grands groupes et événements", link: "/autocar-double-etage" },
                   { name: "Berline VTC", cap: "1 à 7 places VIP", ideal: "dirigeants, VIP, transferts premium", link: "/berline-vtc" }
                 ].map((row, idx) => (
                   <tr key={idx} className="hover:bg-gray-50 transition-colors">
@@ -219,7 +219,7 @@ export default function AutocarDoubleEtagePage() {
           </div>
           <div className="space-y-4">
             {[
-              { q: "Quelle capacité prévoir pour un double étage ?", a: "La capacité indicative est Jusqu'à 93 places. Elle reste confirmée selon le modèle disponible, le nombre d'accompagnateurs et le volume de bagages." },
+              { q: "Quelle capacité prévoir pour un minibus ?", a: "La capacité indicative est 8 à 25 places. Elle reste confirmée selon le modèle disponible, le nombre d'accompagnateurs et le volume de bagages." },
               { q: "Le chauffeur est-il inclus dans la location ?", a: "Oui, la demande porte sur une location avec chauffeur professionnel. Le devis intègre la prestation de conduite et les contraintes horaires." },
               { q: "Pourquoi le prix n'est-il pas affiché immédiatement ?", a: "Le tarif dépend du trajet, de la date, de la durée de mobilisation, du type de véhicule et des contraintes locales. Un conseiller vérifie ces points pour éviter un prix automatique trompeur." },
               { q: "Quel délai prévoir pour réserver ?", a: "Le plus tôt possible, surtout en période de vacances scolaires, salons, mariages et grands événements. Les demandes urgentes restent étudiées selon disponibilité locale." }
