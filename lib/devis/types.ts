@@ -12,6 +12,8 @@ export interface Etape {
   /** Coordonnées normalisées 0..100 dans le canevas de la carte vectorielle */
   x: number;
   y: number;
+  lat: number; 
+  lng: number;
   heure?: string;
   /** Explication réglementaire révélée au clic sur le marqueur */
   rse?: string;

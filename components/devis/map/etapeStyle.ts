@@ -1,6 +1,8 @@
 import { MapPin, Coffee, Moon, Flag, CircleDot, type LucideIcon } from "lucide-react";
 import type { EtapeType, TraceType } from "@/lib/devis/types";
 
+
+
 interface EtapeStyle {
   /** Variable CSS de couleur sémantique (cf. globals.css DA v2) */
   color: string;

@@ -3,6 +3,7 @@
 import { Shield } from "lucide-react";
 import type { Etape } from "@/lib/devis/types";
 
+
 export function MarkerTooltip({ etape }: { etape: Etape }) {
   return (
     <div

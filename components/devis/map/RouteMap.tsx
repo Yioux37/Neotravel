@@ -1,56 +1,53 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { Itineraire } from "@/lib/devis/types";
-import { TRACE_COLOR } from "./etapeStyle";
 
-/**
- * Tracé vectoriel reliant les étapes. viewBox 0..100 + preserveAspectRatio="none"
- * pour que les coordonnées 0..100 des étapes correspondent exactement aux
- * marqueurs HTML positionnés en %. vector-effect évite la déformation du trait.
- */
-export function RouteMap({ itineraire }: { itineraire: Itineraire }) {
-  const { etapes, type } = itineraire;
-  if (etapes.length < 2) return null;
+// Chargement dynamique obligatoire pour Leaflet (qui a besoin de window)
+const WorldMap = dynamic(() => import("./WorldMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-transparent">
+      <span className="text-sm font-medium text-night/50">Chargement de la carte...</span>
+    </div>
+  ),
+});
 
-  const points = etapes.map((e) => `${e.x},${e.y}`);
-  // Circuit : on referme la boucle vers le départ.
-  const d =
-    "M " +
-    points.join(" L ") +
-    (type === "circuit" ? ` L ${etapes[0].x},${etapes[0].y}` : "");
+interface RouteMapProps {
+  itineraire: Itineraire;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  // Fonction de callback pour remonter les calculs d'OSRM à MapPanel
+  onRouteUpdate?: (distance: number, duration: number) => void;
+}
 
-  const color = TRACE_COLOR[type];
+export function RouteMap({ itineraire, selectedId, onSelect, onRouteUpdate }: RouteMapProps) {
+  if (itineraire.etapes.length < 2) return null;
+
+  // --- HACK GPS TEMPORAIRE ---
+  // (À retirer une fois que ton backend/mock enverra directement `lat` et `lng`)
+  const itineraireAvecGPS = {
+    ...itineraire,
+    etapes: itineraire.etapes.map((etape) => {
+      let lat = etape.lat || 46.2276; 
+      let lng = etape.lng || 2.2137;
+
+      const labelLower = etape.label.toLowerCase();
+      if (labelLower.includes("paris")) { lat = 48.8566; lng = 2.3522; }
+      else if (labelLower.includes("beaune")) { lat = 47.0260; lng = 4.8390; }
+      else if (labelLower.includes("lyon")) { lat = 45.7640; lng = 4.8357; }
+      
+      return { ...etape, lat, lng };
+    })
+  };
+  // ---------------------------
 
   return (
-    <svg
-      className="absolute inset-0 h-full w-full"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      aria-hidden
-    >
-      {/* Halo doux sous le tracé */}
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.12}
-        vectorEffect="non-scaling-stroke"
-      />
-      {/* Tracé pointillé animé */}
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray="6 8"
-        vectorEffect="non-scaling-stroke"
-        className="animate-dash"
-      />
-    </svg>
+    <WorldMap 
+      itineraire={itineraireAvecGPS} 
+      selectedId={selectedId} 
+      onSelect={onSelect}
+      onRouteUpdate={onRouteUpdate} // On fait passer la fonction au composant enfant
+    />
   );
 }
