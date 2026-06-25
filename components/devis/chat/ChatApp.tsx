@@ -14,15 +14,17 @@ export default function ChatApp() {
     // 1. On affiche le message de l'utilisateur dans le chat
     setHistorique((prev) => [...prev, { role: "user", text: message }]);
     setChargement(true);
+    console.log("etape1");
     
     // On garde le message en mémoire et on vide l'input
     const texteAEnvoyer = message;
     setMessage("");
-
+    console.log("etape2");
     // ID de session (à remplacer par un vrai UUID généré pour chaque visiteur)
     const sessionId = "session-test-123";
 
     try {
+        console.log("etape3");
       // 2. On appelle ton fichier route.ts
       const reponse = await fetch("/api/chat", {
         method: "POST",
@@ -32,13 +34,13 @@ export default function ChatApp() {
           sessionId: sessionId 
         })
       });
-
+      console.log("etape4");
       const data = await reponse.json(); // Ceci correspond à ton StructuredChatResponse
 
       if (!reponse.ok) {
         throw new Error(data.error || "Erreur inconnue");
       }
-
+      console.log("etape5");
       // 3. On affiche la réponse de l'agent
       setHistorique((prev) => [...prev, { role: "agent", text: data.reply }]);
       
@@ -52,6 +54,7 @@ export default function ChatApp() {
       setChargement(false);
     }
   };
+
 
   return (
     <div className="flex flex-col h-[500px] max-w-md border rounded-lg overflow-hidden bg-white shadow">
