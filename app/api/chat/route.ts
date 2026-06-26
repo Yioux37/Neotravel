@@ -91,12 +91,13 @@ export async function POST(request: Request) {
  */
 async function normalize(res: Response): Promise<StructuredChatResponse> {
   const raw = await res.text();
+  console.log("🛠️ RÉPONSE BRUTE DE N8N :", raw);
   try {
     const data = JSON.parse(raw);
     const reply =
-      [data?.reply, data?.output, data?.text, data?.message].find(
-        (v) => typeof v === "string" && v.trim(),
-      ) ?? "Je n'ai pas reçu de réponse exploitable.";
+  [data?.reply, data?.reponse, data?.output, data?.text, data?.message].find(
+    (v) => typeof v === "string" && v.trim(),
+  ) ?? "Je n'ai pas reçu de réponse exploitable.";
 
     return {
       reply: String(reply).trim(),
