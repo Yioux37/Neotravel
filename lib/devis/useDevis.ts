@@ -194,6 +194,7 @@ export function useDevis(initialQuery: string | null = null) {
     }
   }, []);
 
+  // === COMMUNICATION AVEC L'IA N8N ===
   const sendMessage = useCallback(
     async (text: string, nextStepFallback?: any) => {
       const content = text.trim();
@@ -210,28 +211,65 @@ export function useDevis(initialQuery: string | null = null) {
         });
 
         if (!res.ok) {
-          pushText("assistant", "L'agent est momentanément indisponible.");
+          pushText("assistant", "L'agent est momentanément indisponible. Réessayez dans un instant.");
           setStatus("error");
           return;
         }
 
         const data = (await res.json()) as StructuredChatResponse;
+        console.log("✅ ETAPE 4 : Données reçues de n8n :", data);
+
         const nextStep = data.componentType || nextStepFallback;
         if (nextStep) setCurrentStep(nextStep);
 
-        if (data.reply) pushText("assistant", data.reply, nextStep);
+        // 🧠 SÉCURITÉ DE DESIGN : Si l'IA envoie un pavé de texte avec les prix en brut,
+        // on extrait les chiffres automatiquement pour forcer notre composant Devis
+        let activeDevis = data.devis;
+        let cleanReply = data.reply;
 
-        const textToAnalyze = content + " " + (data.reply || "");
-        const match = textToAnalyze.match(/(?:de\s+|depuis\s+|Départ de\s+)([A-Z][a-zà-ÿ\s-]+)(?:\s+(?:à|vers|pour|-)\s+|,\s*destination\s*:\s*)([A-Z][a-zà-ÿ\s-]+)/i);
-        
-        if (match && match[1] && match[2]) {
-          void calculateRealRoute(match[1].trim(), match[2].trim());
+        if (!activeDevis && cleanReply && (cleanReply.includes("Montant HT") || cleanReply.includes("Montant TTC"))) {
+          // On isole les nombres du texte
+          const htMatch = cleanReply.match(/Montant HT\s*[\*:]+\s*([0-9.,]+)/i) || cleanReply.match(/HT\s*:\s*([0-9.,]+)/i);
+          const ttcMatch = cleanReply.match(/Montant TTC\s*[\*:]+\s*([0-9.,]+)/i) || cleanReply.match(/TTC\s*:\s*([0-9.,]+)/i);
+          
+          if (htMatch || ttcMatch) {
+            activeDevis = {
+              montant_ht: htMatch ? parseFloat(htMatch[1].replace(/\s/g, '').replace(',', '.')) : 0,
+              montant_ttc: ttcMatch ? parseFloat(ttcMatch[1].replace(/\s/g, '').replace(',', '.')) : 0,
+              vehicule: cleanReply.toLowerCase().includes("aller simple") ? "Aller Simple" : "Aller-Retour",
+              rseConforme: true
+            };
+            // On nettoie l'introduction du texte pour ne pas faire de doublons encombrants
+            cleanReply = cleanReply.split(/Montant HT|Base transfert/i)[0].trim();
+          }
         }
 
-        if (data.devis) pushDevisCard(data.devis);
+        // On affiche l'introduction textuelle s'il y en a une
+        if (cleanReply) {
+          pushText("assistant", cleanReply, activeDevis ? "final" : nextStep);
+        }
+
+        // Gestion de la carte OSRM
+        if (data.itineraire) {
+          setItineraire(data.itineraire);
+        } else {
+          const textToAnalyze = content + " " + (data.reply || "");
+          const match = textToAnalyze.match(/(?:de\s+|depuis\s+|Départ de\s+)([A-Z][a-zà-ÿ\s-]+)(?:\s+(?:à|vers|pour|-)\s+|,\s*destination\s*:\s*)([A-Z][a-zà-ÿ\s-]+)/i);
+          if (match && match[1] && match[2]) {
+            void calculateRealRoute(match[1].trim(), match[2].trim());
+          }
+        }
+
+        // 🚀 Si on a extrait un devis, on injecte la magnifique carte de devis dans le fil !
+        if (activeDevis) {
+          pushDevisCard(activeDevis);
+          setCurrentStep("final");
+        }
+
         setStatus("idle");
-      } catch {
-        pushText("assistant", "Erreur réseau.");
+      } catch (error) {
+        console.error("❌ Erreur connecteur :", error);
+        pushText("assistant", "Erreur de connexion.");
         setStatus("error");
       }
     },
