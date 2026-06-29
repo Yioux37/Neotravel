@@ -33,6 +33,7 @@ export function useDevis(initialQuery: string | null = null) {
   const sessionId = useRef<string>(makeId());
   const isLoaded = useRef(false);
 
+  // 1. CHARGEMENT DE L'HISTORIQUE
   useEffect(() => {
     if (typeof window === "undefined" || isLoaded.current) return;
     const saved = localStorage.getItem("neotravel_chats");
@@ -63,6 +64,7 @@ export function useDevis(initialQuery: string | null = null) {
     isLoaded.current = true;
   }, [initialQuery]);
 
+  // 2. SAUVEGARDE AUTOMATIQUE
   useEffect(() => {
     if (!activeChatId || history.length === 0) return;
 
@@ -89,6 +91,7 @@ export function useDevis(initialQuery: string | null = null) {
     });
   }, [messages, itineraire, currentStep, activeChatId]);
 
+  // 3. GESTION DES PROJETS
   const createNewChat = useCallback(() => {
     const newId = makeId();
     const newChat: ChatSession = {
@@ -124,6 +127,7 @@ export function useDevis(initialQuery: string | null = null) {
     setStatus("idle");
   }, [history]);
 
+  // 4. HELPERS DE MESSAGES
   const pushText = useCallback((role: "user" | "assistant", content: string, componentType?: any) => {
     setMessages((prev) => [
       ...prev,
@@ -138,8 +142,8 @@ export function useDevis(initialQuery: string | null = null) {
     ]);
   }, []);
 
-  // === CALCUL DU TRAJET SÉCURISÉ (70 KM/H + PAUSES RSE + GESTION ALLER-RETOUR) ===
-  const calculateRealRoute = useCallback(async (depart: string, arrivee: string) => {
+  // === 5. CALCUL DU TRAJET SÉCURISÉ (OSRM + RSE + ALLER-RETOUR) ===
+  const calculateRealRoute = useCallback(async (depart: string, arrivee: string, forceAllerRetour: boolean = false) => {
     try {
       const startRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(depart)}&format=json&limit=1`);
       const startData = await startRes.json();
@@ -160,30 +164,25 @@ export function useDevis(initialQuery: string | null = null) {
           const route = osrmData.routes[0];
           const coordinates = route.geometry.coordinates.map((coord: [number, number]) => [coord[1], coord[0]]);
           
-          // Distance aller simple de base en kilomètres
           let distanceKm = Number((route.distance / 1000).toFixed(0));
 
-          // 🔄 RECONNAISSANCE INTELLIGENTE ALLER-RETOUR
-          // On vérifie si l'utilisateur a cliqué ou écrit "Aller-Retour" dans le fil de discussion
-          const isAllerRetour = messages.some(m => m.content && m.content.includes("Aller-Retour"));
+          // 🔄 DÉTECTION ALLER-RETOUR BLINDÉE (Historique + Injection IA)
+          const historyContainsAllerRetour = messages.some(m => m.content && /aller[-\s/]*retour/i.test(m.content));
+          const isAllerRetour = forceAllerRetour || historyContainsAllerRetour;
           
           if (isAllerRetour) {
-            console.log("🔄 Type Aller-Retour détecté localement : Distance totale doublée !");
+            console.log("🔄 Type Aller-Retour confirmé : Distance totale doublée !");
             distanceKm = distanceKm * 2;
           }
 
-          // 🏎️ Vitesse moyenne fixe de 70 km/h pour l'autocar sur la distance totale
+          // 🏎️ RÈGLE RSE : Vitesse moyenne de 70 km/h + 20 min de pause toutes les 2h
           const pureDurationMinutes = Math.round((distanceKm / 70) * 60);
-
-          // 🛑 REGULATION DES PAUSES RSE : +20 min toutes les 2h (120 minutes) de conduite pure
           const numberOfBreaks = Math.floor(pureDurationMinutes / 120); 
           const breakDuration = 20; 
-          
-          // Durée globale finale (Conduite à 70km/h + pauses cumulées)
           const totalDurationWithBreaks = pureDurationMinutes + (numberOfBreaks * breakDuration);
 
           const newItineraire: Itineraire = {
-            coords: coordinates, // On garde le tracé simple de l'itinéraire sur la carte
+            coords: coordinates, 
             distance: distanceKm,
             duration: totalDurationWithBreaks, 
             start: { name: depart, coords: [startLat, startLon] },
@@ -198,8 +197,9 @@ export function useDevis(initialQuery: string | null = null) {
       console.error("❌ OSRM Error:", error);
       return null;
     }
-  }, [messages]); // 💡 Ajout de messages ici pour traquer dynamiquement les choix de l'utilisateur
+  }, [messages]); 
 
+  // === 6. INTERCEPTEUR DE MESSAGES N8N ===
   const sendMessage = useCallback(
     async (text: string, nextStepFallback?: any) => {
       const content = text.trim();
@@ -228,15 +228,29 @@ export function useDevis(initialQuery: string | null = null) {
         let activeDevis = data.devis;
         let cleanReply = data.reply;
 
-        if (!activeDevis && cleanReply && (cleanReply.includes("Montant HT") || cleanReply.includes("Montant TTC"))) {
-          const htMatch = cleanReply.match(/Montant HT\s*[\*:]+\s*([0-9.,\s]+)/i) || cleanReply.match(/HT\s*:\s*([0-9.,\s]+)/i);
-          const ttcMatch = cleanReply.match(/Montant TTC\s*[\*:]+\s*([0-9.,\s]+)/i) || cleanReply.match(/TTC\s*:\s*([0-9.,\s]+)/i);
+        // 🛡️ VÉRIFICATION DE SÉCURITÉ : Y a-t-il de vrais chiffres de prix ?
+        const hasValidPrices = activeDevis && 
+                               typeof activeDevis.montant_ht === "number" && 
+                               !isNaN(activeDevis.montant_ht) && 
+                               activeDevis.montant_ht > 0;
+
+        // 🧠 PARSEUR ANTI-NAN (Ignore les espaces insécables Unicode)
+        if (!hasValidPrices && cleanReply && (cleanReply.includes("Montant HT") || cleanReply.includes("Montant TTC"))) {
+          const htMatch = cleanReply.match(/Montant HT[^0-9]*([0-9][0-9\s.,\u00a0\u202f]*)/i) || cleanReply.match(/HT[^0-9]*([0-9][0-9\s.,\u00a0\u202f]*)/i);
+          const ttcMatch = cleanReply.match(/Montant TTC[^0-9]*([0-9][0-9\s.,\u00a0\u202f]*)/i) || cleanReply.match(/TTC[^0-9]*([0-9][0-9\s.,\u00a0\u202f]*)/i);
           
           if (htMatch || ttcMatch) {
+            const parsePrice = (raw: string) => {
+              const cleanStr = raw.trim().replace(/[\s\u00a0\u202f]/g, '').replace(',', '.');
+              const num = parseFloat(cleanStr);
+              return isNaN(num) ? 0 : num;
+            };
+
             activeDevis = {
-              montant_ht: htMatch ? parseFloat(htMatch[1].replace(/\s/g, '').replace(',', '.')) : 0,
-              montant_ttc: ttcMatch ? parseFloat(ttcMatch[1].replace(/\s/g, '').replace(',', '.')) : 0,
-              vehicule: cleanReply.toLowerCase().includes("aller simple") ? "Aller Simple" : "Aller-Retour",
+              ...(activeDevis || {}),
+              montant_ht: htMatch ? parsePrice(htMatch[1]) : 0,
+              montant_ttc: ttcMatch ? parsePrice(ttcMatch[1]) : 0,
+              vehicule: activeDevis?.vehicule || (cleanReply.toLowerCase().includes("aller simple") ? "Aller Simple" : "Aller-Retour"),
               rseConforme: true
             };
             cleanReply = cleanReply.split(/Montant HT|Base transfert/i)[0].trim();
@@ -245,15 +259,19 @@ export function useDevis(initialQuery: string | null = null) {
 
         if (cleanReply) pushText("assistant", cleanReply, activeDevis ? "final" : nextStep);
 
+        // Analyse intelligente pour piloter OSRM et forcer l'Aller-Retour si identifié par l'IA
+        const isRoundTripDetected = activeDevis?.vehicule?.toLowerCase().includes("retour") || 
+                                    (data.reply && data.reply.toLowerCase().includes("retour"));
+
         const textToAnalyze = content + " " + (data.reply || "");
         const match = textToAnalyze.match(/(?:de\s+|depuis\s+|Départ de\s+)([A-Z][a-zà-ÿ\s'-]+)(?:\s+(?:à|vers|pour|-)\s+|,\s*destination\s*:\s*)([A-Z][a-zà-ÿ\s'-]+)/i) ||
                       textToAnalyze.match(/entre\s+([A-Z][a-zà-ÿ\s'-]+)\s+et\s+([A-Z][a-zà-ÿ\s'-]+)/i);
         
         if (match && match[1] && match[2]) {
-          void calculateRealRoute(match[1].trim(), match[2].trim());
+          void calculateRealRoute(match[1].trim(), match[2].trim(), !!isRoundTripDetected);
         }
 
-        if (activeDevis) {
+        if (activeDevis && (activeDevis.montant_ht > 0 || activeDevis.montant_ttc > 0)) {
           pushDevisCard(activeDevis);
           setCurrentStep("final");
         }

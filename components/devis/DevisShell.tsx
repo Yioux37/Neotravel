@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowRight, Check, Sparkles, Loader2, Shield } from "lucide-react";
 import { useDevis } from "@/lib/devis/useDevis";
 import { MapPanel } from "./map/MapPanel";
-import ChatSidebar from "../ChatSidebar"; // Aligne le chemin d'import si nécessaire
+import ChatSidebar from "../ChatSidebar";
 
 export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
   // Extraction de l'historique vivant depuis notre hook
@@ -90,7 +90,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
 
   return (
     <div className="flex h-screen w-full bg-white font-sans text-slate-900 overflow-hidden">
-      {/* LA SIDEBAR EST MAINTENANT TOTALEMENT COUPLÉE AUX ACTIONS */}
+      {/* LA SIDEBAR EST TOTALEMENT COUPLÉE AUX ACTIONS */}
       <ChatSidebar
         history={history}
         activeChatId={activeChatId}
@@ -117,6 +117,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                 key={msg.id || i}
                 className="flex flex-col w-full animate-fadeIn"
               >
+                {/* Message Utilisateur */}
                 {msg.role === "user" && (
                   <div className="flex justify-end mb-2">
                     <div className="bg-slate-100 border border-slate-200/50 text-slate-800 px-5 py-3 rounded-2xl text-[14px] leading-relaxed max-w-[80%] font-medium">
@@ -125,6 +126,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                   </div>
                 )}
 
+                {/* Message Assistant IA */}
                 {msg.role === "assistant" && (
                   <div className="flex gap-4 w-full">
                     <div className="w-8 h-8 rounded-lg bg-lime-100/50 border border-lime-200/50 flex items-center justify-center shrink-0">
@@ -137,6 +139,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                         </p>
                       )}
 
+                      {/* Choix du type de trajet */}
                       {msg.componentType === "type" &&
                         currentStep === "type" &&
                         isLastMessage && (
@@ -159,6 +162,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                           </div>
                         )}
 
+                      {/* Choix des passagers */}
                       {msg.componentType === "voyageurs" &&
                         currentStep === "voyageurs" &&
                         isLastMessage && (
@@ -180,6 +184,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                           </div>
                         )}
 
+                      {/* Formulaire Itinéraire & Dates */}
                       {msg.componentType === "details" &&
                         currentStep === "details" &&
                         isLastMessage && (
@@ -262,12 +267,13 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                                 type="submit"
                                 className="bg-slate-900 text-white rounded-lg px-6 py-2.5 text-sm font-medium hover:bg-slate-800 transition-colors w-max"
                               >
-                                Valider l itinéraire
+                                Valider l'itinéraire
                               </button>
                             </div>
                           </form>
                         )}
 
+                      {/* Écran de chargement cartographique */}
                       {currentStep === "loading" && isLastMessage && (
                         <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 flex items-center gap-4">
                           <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
@@ -277,6 +283,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                         </div>
                       )}
 
+                      {/* Formulaire de Contact */}
                       {msg.componentType === "coordonnees" &&
                         currentStep === "coordonnees" &&
                         isLastMessage && (
@@ -319,7 +326,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                           </form>
                         )}
 
-                      {/* ÉTAPE 6 : COMPOSANT FINAL DEVIS CARD (DESIGN DU TOTAL CORRIGÉ AU PIXEL PRÈS) */}
+                      {/* ÉTAPE 6 : COMPOSANT FINAL DEVIS CARD (ANTI-NaN ABSOLU) */}
                       {msg.kind === "devis" && msg.devis && (
                         <div className="w-full max-w-xl border border-slate-200 rounded-2xl p-6 mt-4 shadow-sm bg-white animate-fadeIn">
                           {/* En-tête de la carte */}
@@ -328,7 +335,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                               Devis RSE Neotravel
                             </h3>
                             <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1.5">
-                              <Shield className="w-3.5 h-3.5 stroke-[2.5]" />{" "}
+                              <Shield className="w-3.5 h-3.5 stroke-[2.5]" />
                               SÉCURISÉ
                             </span>
                           </div>
@@ -350,7 +357,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                               <p className="text-sm font-semibold text-slate-800">
                                 {itineraire?.distance && itineraire.distance > 0
                                   ? `${itineraire.distance} km`
-                                  : "227 km"}
+                                  : "-- km"}
                               </p>
                             </div>
                             <div className="col-span-2">
@@ -358,32 +365,46 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                                 Itinéraire
                               </p>
                               <p className="text-sm font-semibold text-slate-800">
-                                {itineraire?.start?.name || "Lyon"} &rarr;{" "}
+                                {itineraire?.start?.name || "Inconnu"} &rarr;{" "}
                                 {itineraire?.end?.name || "Inconnu"}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex justify-between items-center bg-[#f8fafc] rounded-2xl p-5 border border-slate-100">
-                            <div className="flex flex-col">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                                {msg.devis.montant_ttc > 0
-                                  ? "TOTAL ESTIMÉ TTC"
-                                  : "TOTAL ESTIMÉ HT"}
-                              </p>
-                              <p className="text-3xl font-black text-slate-900 tracking-tight">
-                                {msg.devis.montant_ttc > 0
-                                  ? `${Math.round(msg.devis.montant_ttc).toLocaleString("fr-FR")} €`
-                                  : `${Math.round(msg.devis.montant_ht).toLocaleString("fr-FR")} €`}
-                              </p>
-                            </div>
-                            <button
-                              id="reserve-button"
-                              className="bg-[#a3e635] text-slate-900 font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-lime-500 active:scale-95 transition-all shadow-sm"
-                            >
-                              Réserver
-                            </button>
-                          </div>
+                          {/* BLOC TOTAL ENTIÈREMENT BLINDÉ (Correction NaN) */}
+                          {(() => {
+                            const parseSafePrice = (val: any) => {
+                              if (val === null || val === undefined || val === "") return 0;
+                              const cleanVal = val.toString().replace(/[\s\u00a0\u202f€]/g, '').replace(',', '.');
+                              const num = parseFloat(cleanVal);
+                              return isNaN(num) ? 0 : num;
+                            };
+
+                            const finalTtc = parseSafePrice(msg.devis.montant_ttc);
+                            const finalHt = parseSafePrice(msg.devis.montant_ht);
+                            const displayPrice = finalTtc > 0 ? finalTtc : finalHt;
+                            const isValidPrice = displayPrice > 0;
+
+                            return (
+                              <div className="flex justify-between items-center bg-[#f8fafc] rounded-2xl p-5 border border-slate-100">
+                                <div className="flex flex-col">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    {!isValidPrice ? "CALCUL EN COURS" : finalTtc > 0 ? "TOTAL ESTIMÉ TTC" : "TOTAL ESTIMÉ HT"}
+                                  </p>
+                                  <p className="text-3xl font-black text-slate-900 tracking-tight">
+                                    {isValidPrice ? `${Math.round(displayPrice).toLocaleString("fr-FR")} €` : "Patientez..."}
+                                  </p>
+                                </div>
+                                <button
+                                  id="reserve-button"
+                                  disabled={!isValidPrice}
+                                  className="bg-[#a3e635] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-900 font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-lime-500 active:scale-95 transition-all shadow-sm"
+                                >
+                                  Réserver
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -400,7 +421,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
               </div>
               <div className="pt-1">
                 <span className="text-sm text-slate-400">
-                  L agent analyse vos données...
+                  L'agent analyse vos données...
                 </span>
               </div>
             </div>
@@ -408,6 +429,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
           <div ref={chatBottomRef} />
         </div>
 
+        {/* Input Textuel */}
         <div className="p-4 bg-white border-t border-slate-200/60 sticky bottom-0">
           <div className="max-w-3xl mx-auto flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 shadow-sm focus-within:border-slate-400 transition-all">
             <textarea
@@ -435,6 +457,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
         </div>
       </section>
 
+      {/* CARTE OSRM DROITE */}
       <section className="hidden lg:flex flex-1 max-w-[450px] relative flex-col shrink-0 border-l border-slate-200 bg-[#f9fafb]">
         <MapPanel
           itineraire={itineraire}
