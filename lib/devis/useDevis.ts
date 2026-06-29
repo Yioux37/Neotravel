@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DevisChatMessage, Devis, Itineraire, StructuredChatResponse } from "./types";
+import type { DevisChatMessage, Devis, Itineraire, StructuredChatResponse, ChatSession, FunnelComponentType } from "./types";
 import { DEMO_ITINERAIRE } from "./demoItineraire";
 
 type Status = "idle" | "sending" | "error";
@@ -12,24 +12,135 @@ function makeId() {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const GREETING: DevisChatMessage = {
-  id: "greeting",
+const GREETING = (): DevisChatMessage => ({
+  id: makeId(),
   role: "assistant",
   kind: "text",
   content: "Bonjour ! Configurons ensemble votre itinéraire routier.",
   createdAt: Date.now(),
-  componentType: "type", // On affiche directement le choix du type au début
-};
+  componentType: "type",
+});
 
 export function useDevis(initialQuery: string | null = null) {
-  const [messages, setMessages] = useState<DevisChatMessage[]>(() => [GREETING]);
+  // === ÉTATS DE L'HISTORIQUE ===
+  const [history, setHistory] = useState<ChatSession[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+
+  // === ÉTATS DE LA CONVERSATION ACTUELLE ===
+  const [messages, setMessages] = useState<DevisChatMessage[]>([]);
   const [itineraire, setItineraire] = useState<Itineraire>(DEMO_ITINERAIRE);
+  const [currentStep, setCurrentStep] = useState<FunnelComponentType>("type");
   const [status, setStatus] = useState<Status>("idle");
-  const [currentStep, setCurrentStep] = useState<string>("type");
   
   const sessionId = useRef<string>(makeId());
-  const seeded = useRef(false);
+  const isLoaded = useRef(false);
 
+  // 1. CHARGEMENT INITIAL DU LOCALSTORAGE (Côté Client)
+  useEffect(() => {
+    if (typeof window === "undefined" || isLoaded.current) return;
+    
+    const saved = localStorage.getItem("neotravel_chats");
+    let initialHistory: ChatSession[] = saved ? JSON.parse(saved) : [];
+    
+    if (initialHistory.length === 0) {
+      // Si l'historique est vide, on crée un premier chat par défaut
+      const newId = makeId();
+      const defaultChat: ChatSession = {
+        id: newId,
+        title: initialQuery ? initialQuery : "Nouveau projet",
+        date: "À l'instant",
+        status: "nouveau",
+        messages: [GREETING()],
+        itineraire: DEMO_ITINERAIRE,
+        currentStep: "type",
+      };
+      initialHistory = [defaultChat];
+      localStorage.setItem("neotravel_chats", JSON.stringify(initialHistory));
+    }
+
+    setHistory(initialHistory);
+    // On cible le premier chat ou le plus récent
+    const chatToActivate = initialHistory[0];
+    setActiveChatId(chatToActivate.id);
+    setMessages(chatToActivate.messages);
+    setItineraire(chatToActivate.itineraire);
+    setCurrentStep(chatToActivate.currentStep);
+    sessionId.current = chatToActivate.id; // On aligne la session n8n sur l'ID du chat
+    
+    isLoaded.current = true;
+  }, [initialQuery]);
+
+  // 2. SAUVEGARDE SYNCHRONE DÈS QUE LA CONVERSATION CHANGE
+  useEffect(() => {
+    if (!activeChatId || history.length === 0) return;
+
+    setHistory((prevHistory) => {
+      const updated = prevHistory.map((session) => {
+        if (session.id === activeChatId) {
+          // Tente de deviner un titre plus intelligent si l'itinéraire est calculé
+          let currentTitle = session.title;
+          if (itineraire?.start?.name && itineraire?.end?.name) {
+            currentTitle = `${itineraire.start.name} → ${itineraire.end.name}`;
+          }
+
+          return {
+            ...session,
+            title: currentTitle,
+            messages,
+            itineraire,
+            currentStep,
+            status: currentStep === "final" ? "devis_envoye" : "en_cours",
+          };
+        }
+        return session;
+      });
+
+      localStorage.setItem("neotravel_chats", JSON.stringify(updated));
+      return updated;
+    });
+  }, [messages, itineraire, currentStep, activeChatId]);
+
+  // 3. ACTION : CRÉER UN NOUVEAU PROJET
+  const createNewChat = useCallback(() => {
+    const newId = makeId();
+    const newChat: ChatSession = {
+      id: newId,
+      title: "Nouveau projet",
+      date: "À l'instant",
+      status: "nouveau",
+      messages: [GREETING()],
+      itineraire: DEMO_ITINERAIRE,
+      currentStep: "type",
+    };
+
+    setHistory((prev) => {
+      const updated = [newChat, ...prev];
+      localStorage.setItem("neotravel_chats", JSON.stringify(updated));
+      return updated;
+    });
+
+    setActiveChatId(newId);
+    setMessages(newChat.messages);
+    setItineraire(newChat.itineraire);
+    setCurrentStep(newChat.currentStep);
+    sessionId.current = newId;
+    setStatus("idle");
+  }, []);
+
+  // 4. ACTION : SELECTIONNER UN ANCIEN CHAT
+  const selectChat = useCallback((id: string) => {
+    const target = history.find((h) => h.id === id);
+    if (!target) return;
+
+    setActiveChatId(id);
+    setMessages(target.messages);
+    setItineraire(target.itineraire);
+    setCurrentStep(target.currentStep);
+    sessionId.current = target.id;
+    setStatus("idle");
+  }, [history]);
+
+  // HELPERS INTERNES
   const pushText = useCallback((role: "user" | "assistant", content: string, componentType?: any) => {
     setMessages((prev) => [
       ...prev,
@@ -44,13 +155,10 @@ export function useDevis(initialQuery: string | null = null) {
     ]);
   }, []);
 
-  // CALCUL GPS VIA OSRM
   const calculateRealRoute = useCallback(async (depart: string, arrivee: string) => {
-    console.log(`🗺️ Calcul OSRM demandé : ${depart} → ${arrivee}`);
     try {
       const startRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(depart)}&format=json&limit=1`);
       const startData = await startRes.json();
-
       const endDest = arrivee.split(",")[0].trim();
       const endRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endDest)}&format=json&limit=1`);
       const endData = await endRes.json();
@@ -75,19 +183,17 @@ export function useDevis(initialQuery: string | null = null) {
             start: { name: depart, coords: [startLat, startLon] },
             end: { name: endDest, coords: [endLat, endLon] },
           };
-
           setItineraire(newItineraire);
           return newItineraire;
         }
       }
       return null;
     } catch (error) {
-      console.error("❌ Erreur OSRM :", error);
+      console.error("❌ OSRM Error:", error);
       return null;
     }
   }, []);
 
-  // ENVOI DU TEXTE POST VERS L'IA
   const sendMessage = useCallback(
     async (text: string, nextStepFallback?: any) => {
       const content = text.trim();
@@ -110,49 +216,27 @@ export function useDevis(initialQuery: string | null = null) {
         }
 
         const data = (await res.json()) as StructuredChatResponse;
-        
-        // On détermine la prochaine étape dictée par n8n, sinon on utilise le fallback local
         const nextStep = data.componentType || nextStepFallback;
         if (nextStep) setCurrentStep(nextStep);
 
-        if (data.reply) {
-          pushText("assistant", data.reply, nextStep);
-        }
-
-        // Radar intelligent pour mettre à jour la carte en lisant la réponse ou la demande
-        // 🛑 CORRECTIF DU BUG DE LA CARTE 🛑
-        // On IGNORE totalement les fausses données de la carte renvoyées par le backend (Paris-Portugal)
-        // On ne fait confiance qu'à notre analyse de texte et à OSRM.
+        if (data.reply) pushText("assistant", data.reply, nextStep);
 
         const textToAnalyze = content + " " + (data.reply || "");
-        
-        // Regex ultra-intelligente qui détecte :
-        // 1. "de Paris à Lyon" (discussion naturelle)
-        // 2. "Départ de Lyon, destination : Marseille" (phrase secrète envoyée par notre formulaire)
         const match = textToAnalyze.match(/(?:de\s+|depuis\s+|Départ de\s+)([A-Z][a-zà-ÿ\s-]+)(?:\s+(?:à|vers|pour|-)\s+|,\s*destination\s*:\s*)([A-Z][a-zà-ÿ\s-]+)/i);
         
         if (match && match[1] && match[2]) {
-          console.log("📍 Trajet détecté automatiquement :", match[1].trim(), "->", match[2].trim());
           void calculateRealRoute(match[1].trim(), match[2].trim());
         }
 
         if (data.devis) pushDevisCard(data.devis);
-
         setStatus("idle");
-      } catch (error) {
-        pushText("assistant", "Erreur de connexion.");
+      } catch {
+        pushText("assistant", "Erreur réseau.");
         setStatus("error");
       }
     },
     [status, pushText, pushDevisCard, calculateRealRoute],
   );
-
-  useEffect(() => {
-    if (initialQuery && !seeded.current) {
-      seeded.current = true;
-      void sendMessage(initialQuery, "voyageurs");
-    }
-  }, [initialQuery, sendMessage]);
 
   return {
     messages,
@@ -162,5 +246,10 @@ export function useDevis(initialQuery: string | null = null) {
     setCurrentStep,
     sendMessage,
     calculateRealRoute,
+    // Exportés pour la Sidebar !
+    history,
+    activeChatId,
+    createNewChat,
+    selectChat,
   };
 }

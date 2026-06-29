@@ -96,3 +96,13 @@ export interface StructuredChatResponse {
   // Permet à n'importe quel message ou réponse de n8n de forcer l'affichage d'une étape
   componentType?: FunnelComponentType; 
 }
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  date: string;
+  status: "nouveau" | "en_cours" | "devis_envoye";
+  messages: DevisChatMessage[];
+  itineraire: Itineraire;
+  currentStep: FunnelComponentType;
+}

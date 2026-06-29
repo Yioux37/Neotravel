@@ -4,28 +4,45 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowRight, Check, Sparkles, Loader2, Shield } from "lucide-react";
 import { useDevis } from "@/lib/devis/useDevis";
 import { MapPanel } from "./map/MapPanel";
-import ChatSidebar from "../ChatSidebar"; // Ajuste selon ton arborescence
-
-const INITIAL_HISTORY = [
-  { id: "c1", title: "Séminaire Annecy", date: "Il y a 2h", status: "devis_envoye" }
-];
+import ChatSidebar from "../ChatSidebar"; // Aligne le chemin d'import si nécessaire
 
 export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
-  const { messages, itineraire, status, currentStep, setCurrentStep, sendMessage, calculateRealRoute } = useDevis(initialQuery);
+  // Extraction de l'historique vivant depuis notre hook
+  const { 
+    messages, 
+    itineraire, 
+    status, 
+    currentStep, 
+    setCurrentStep, 
+    sendMessage, 
+    calculateRealRoute,
+    history,
+    activeChatId,
+    createNewChat,
+    selectChat
+  } = useDevis(initialQuery);
+
   const isSending = status === "sending";
 
   // États locaux des formulaires d'origine
-  const [history] = useState(INITIAL_HISTORY);
-  const [activeChatId, setActiveChatId] = useState<string | null>("c1");
   const [inputValue, setInputValue] = useState("");
-
   const [formDetails, setFormDetails] = useState({ villeDepart: "Lyon", villeArrivee: "", dateDepart: "2026-06-30", dateRetour: "2026-07-02" });
   const [formCoordonnees, setFormCoordonnees] = useState({ nom: "", tel: "", email: "" });
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isSending]);
 
-  // FLOW ACTIONS (Chaque action fait un POST vers l'IA)
+  // Synchronisation des inputs si l'itinéraire change via l'IA
+  useEffect(() => {
+    if (itineraire?.start?.name || itineraire?.end?.name) {
+      setFormDetails(prev => ({
+        ...prev,
+        villeDepart: itineraire.start?.name || prev.villeDepart,
+        villeArrivee: itineraire.end?.name || prev.villeArrivee
+      }));
+    }
+  }, [itineraire]);
+
   const selectType = (type: string) => {
     void sendMessage(`Je choisis le type de déplacement : ${type}`, "voyageurs");
   };
@@ -37,10 +54,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
   const submitDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentStep("loading");
-    
-    // Déclenche le tracé de la carte immédiatement
     await calculateRealRoute(formDetails.villeDepart, formDetails.villeArrivee);
-
     const messageSynthese = `Dates et itinéraires validés. Départ de ${formDetails.villeDepart}, destination : ${formDetails.villeArrivee}. Date Aller : ${formDetails.dateDepart}, Date Retour : ${formDetails.dateRetour}.`;
     void sendMessage(messageSynthese, "coordonnees");
   };
@@ -60,7 +74,13 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
   return (
     <div className="flex h-screen w-full bg-white font-sans text-slate-900 overflow-hidden">
       
-      <ChatSidebar history={history} onNewChat={() => {}} activeChatId={activeChatId} onSelectChat={(id: string) => setActiveChatId(id)} />
+      {/* LA SIDEBAR EST MAINTENANT TOTALEMENT COUPLÉE AUX ACTIONS */}
+      <ChatSidebar 
+        history={history} 
+        activeChatId={activeChatId} 
+        onNewChat={createNewChat} 
+        onSelectChat={selectChat} 
+      />
 
       {/* CENTRE : CHAT COMPLET */}
       <section className="flex-1 flex flex-col relative z-10 border-r border-slate-200 min-w-0 bg-white">
@@ -73,14 +93,12 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
           </div>
         </header>
 
-        {/* LOG DES MESSAGES DANS LE STYLE D'ORIGINE */}
         <div className="flex-1 overflow-y-auto px-4 md:px-32 py-10 space-y-10 scroll-smooth">
           {messages.map((msg, i) => {
             const isLastMessage = i === messages.length - 1;
             return (
               <div key={msg.id || i} className="flex flex-col w-full animate-fadeIn">
                 
-                {/* Rendu Utilisateur */}
                 {msg.role === "user" && (
                   <div className="flex justify-end mb-2">
                     <div className="bg-slate-100 border border-slate-200/50 text-slate-800 px-5 py-3 rounded-2xl text-[14px] leading-relaxed max-w-[80%] font-medium">
@@ -89,7 +107,6 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                   </div>
                 )}
 
-                {/* Rendu Assistant IA */}
                 {msg.role === "assistant" && (
                   <div className="flex gap-4 w-full">
                     <div className="w-8 h-8 rounded-lg bg-lime-100/50 border border-lime-200/50 flex items-center justify-center shrink-0">
@@ -98,7 +115,6 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                     <div className="flex-1 space-y-4 pt-1">
                       {msg.content && <p className="text-slate-800 text-[15px] leading-relaxed">{msg.content}</p>}
 
-                      {/* ÉTAPE 1 : BOUTONS TYPES (Seulement si c'est le dernier message actif) */}
                       {msg.componentType === "type" && currentStep === "type" && isLastMessage && (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl mt-4">
                           {[{ id: "Aller-Retour", t: "Aller-Retour" }, { id: "Aller simple", t: "Aller Simple" }, { id: "Circuit", t: "Circuit" }].map(btn => (
@@ -109,7 +125,6 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                         </div>
                       )}
 
-                      {/* ÉTAPE 2 : COMPOSANT VOYAGEURS */}
                       {msg.componentType === "voyageurs" && currentStep === "voyageurs" && isLastMessage && (
                         <div className="flex flex-wrap gap-2 mt-4">
                           {["10-20 pax", "20-50 pax", "50-75 pax", "100+ pax"].map(t => (
@@ -118,7 +133,6 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                         </div>
                       )}
 
-                      {/* ÉTAPE 3 : FORMULAIRE VILLES ET DATES */}
                       {msg.componentType === "details" && currentStep === "details" && isLastMessage && (
                         <form onSubmit={submitDetails} className="w-full max-w-2xl border border-slate-200 rounded-xl p-6 space-y-6 mt-4 shadow-sm bg-white">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -134,12 +148,11 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                             <div><label className="block text-xs font-semibold text-slate-700 mb-2">Date Retour</label><input type="date" required className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none text-slate-600" value={formDetails.dateRetour} onChange={e => setFormDetails({...formDetails, dateRetour: e.target.value})} /></div>
                           </div>
                           <div className="pt-2">
-                             <button type="submit" className="bg-slate-900 text-white rounded-lg px-6 py-2.5 text-sm font-medium hover:bg-slate-800 transition-colors w-max">Valider l'itinéraire</button>
+                             <button type="submit" className="bg-slate-900 text-white rounded-lg px-6 py-2.5 text-sm font-medium hover:bg-slate-800 transition-colors w-max">Valider l itinéraire</button>
                           </div>
                         </form>
                       )}
 
-                      {/* ÉTAPE 4 : LOADING TRANSITIONNEL */}
                       {currentStep === "loading" && isLastMessage && (
                         <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 flex items-center gap-4">
                           <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
@@ -147,7 +160,6 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                         </div>
                       )}
 
-                      {/* ÉTAPE 5 : COORDONNÉES CLIENT */}
                       {msg.componentType === "coordonnees" && currentStep === "coordonnees" && isLastMessage && (
                         <form onSubmit={submitCoordonnees} className="w-full max-w-sm border border-slate-200 rounded-xl p-5 space-y-4 mt-4 bg-white shadow-sm">
                           <input type="text" required placeholder="Votre nom" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-slate-400" value={formCoordonnees.nom} onChange={e => setFormCoordonnees({...formCoordonnees, nom: e.target.value})} />
@@ -156,14 +168,12 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                         </form>
                       )}
 
-                      {/* ÉTAPE 6 : COMPOSANT FINAL DEVIS CARD */}
                       {msg.kind === "devis" && msg.devis && (
                         <div className="w-full max-w-xl border border-slate-200 rounded-xl p-6 mt-4 shadow-sm bg-white">
                           <div className="flex justify-between items-start mb-6 border-b border-slate-100 pb-4">
                             <span className="font-semibold text-base text-slate-900">Devis RSE Neotravel</span>
                             <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold px-2 py-1 rounded uppercase flex items-center gap-1"><Shield className="w-3 h-3" /> Sécurisé</span>
                           </div>
-                          
                           <div className="flex justify-between items-end bg-slate-50 rounded-lg p-4 border border-slate-100">
                             <div>
                                <p className="text-[11px] font-semibold text-slate-500 uppercase mb-0.5">Total estimé TTC</p>
@@ -181,19 +191,17 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
             );
           })}
           
-          {/* Loader de saisie texte classique */}
           {isSending && currentStep !== "loading" && (
             <div className="flex gap-4 w-full animate-fadeIn">
                <div className="w-8 h-8 rounded-lg bg-lime-100/50 flex items-center justify-center shrink-0">
                   <Sparkles className="w-4 h-4 text-lime-600 animate-spin" />
                </div>
-               <div className="pt-1"><span className="text-sm text-slate-400">L'agent analyse vos données...</span></div>
+               <div className="pt-1"><span className="text-sm text-slate-400">L agent analyse vos données...</span></div>
             </div>
           )}
           <div ref={chatBottomRef} />
         </div>
 
-        {/* INPUT DE DIALOGUE TEXTUEL BAS DE PAGE */}
         <div className="p-4 bg-white border-t border-slate-200/60 sticky bottom-0">
            <div className="max-w-3xl mx-auto flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 shadow-sm focus-within:border-slate-400 transition-all">
               <textarea 
@@ -212,7 +220,6 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
         </div>
       </section>
 
-      {/* DROITE : CARTE D'ORIGINE */}
       <section className="hidden lg:flex flex-1 max-w-[450px] relative flex-col shrink-0 border-l border-slate-200 bg-[#f9fafb]">
         <MapPanel itineraire={itineraire} isCalculating={currentStep === "loading" || isSending} />
       </section>
