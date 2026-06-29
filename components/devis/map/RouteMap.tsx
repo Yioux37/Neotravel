@@ -15,14 +15,14 @@ L.Icon.Default.mergeOptions({
 
 // MARQUEURS STYLISÉS (A et D comme sur ton image)
 const iconStart = L.divIcon({
-  html: `<div class="w-7 h-7 bg-emerald-500 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">A</div>`,
+  html: `<div class="w-7 h-7 bg-slate-800 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">A</div>`,
   className: "",
   iconSize: [28, 28],
   iconAnchor: [14, 14],
 });
 
 const iconEnd = L.divIcon({
-  html: `<div class="w-7 h-7 bg-slate-800 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">D</div>`,
+  html: `<div class="w-7 h-7 bg-emerald-500 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">B</div>`,
   className: "",
   iconSize: [28, 28],
   iconAnchor: [14, 14],
@@ -65,7 +65,7 @@ export function RouteMap({ routeCoords, startPoint, endPoint }: RouteMapProps) {
         <>
           <Polyline 
             positions={routeCoords} 
-            color="#0f172a" 
+            color="#3326ef" 
             weight={4} 
             opacity={0.9} 
             dashArray="8, 8" 
