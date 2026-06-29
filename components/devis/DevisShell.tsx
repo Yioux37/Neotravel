@@ -1,99 +1,226 @@
 "use client";
 
-import { useState } from "react";
-import { MessageSquare, Map as MapIcon, Check } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowRight, Check, Sparkles, Loader2, Shield } from "lucide-react";
 import { useDevis } from "@/lib/devis/useDevis";
-import { DevisChat } from "./chat/DevisChat";
 import { MapPanel } from "./map/MapPanel";
-// Ajuste le chemin du ChatSidebar selon ton arborescence si besoin
-import ChatSidebar from "../ChatSidebar"; 
+import ChatSidebar from "../ChatSidebar"; // Ajuste selon ton arborescence
 
-type MobileView = "chat" | "carte";
-
-// Historique factice pour la sidebar en attendant de la connecter à une vraie base de données
 const INITIAL_HISTORY = [
-  { id: "c1", title: "Nouveau Trajet", date: "À l'instant", status: "nouveau" }
+  { id: "c1", title: "Séminaire Annecy", date: "Il y a 2h", status: "devis_envoye" }
 ];
 
 export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
-  const {
-    messages,
-    itineraire,
-    status,
-    selectedEtapeId,
-    setSelectedEtapeId,
-    sendMessage,
-    confirmVehicule,
-  } = useDevis(initialQuery);
-
-  const [view, setView] = useState<MobileView>("chat");
+  const { messages, itineraire, status, currentStep, setCurrentStep, sendMessage, calculateRealRoute } = useDevis(initialQuery);
   const isSending = status === "sending";
-  
-  // États locaux pour empêcher la Sidebar de crasher
+
+  // États locaux des formulaires d'origine
   const [history] = useState(INITIAL_HISTORY);
   const [activeChatId, setActiveChatId] = useState<string | null>("c1");
+  const [inputValue, setInputValue] = useState("");
+
+  const [formDetails, setFormDetails] = useState({ villeDepart: "Lyon", villeArrivee: "", dateDepart: "2026-06-30", dateRetour: "2026-07-02" });
+  const [formCoordonnees, setFormCoordonnees] = useState({ nom: "", tel: "", email: "" });
+
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isSending]);
+
+  // FLOW ACTIONS (Chaque action fait un POST vers l'IA)
+  const selectType = (type: string) => {
+    void sendMessage(`Je choisis le type de déplacement : ${type}`, "voyageurs");
+  };
+
+  const selectVoyageurs = (tranche: string) => {
+    void sendMessage(`Nous serons un groupe de ${tranche} passagers.`, "details");
+  };
+
+  const submitDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCurrentStep("loading");
+    
+    // Déclenche le tracé de la carte immédiatement
+    await calculateRealRoute(formDetails.villeDepart, formDetails.villeArrivee);
+
+    const messageSynthese = `Dates et itinéraires validés. Départ de ${formDetails.villeDepart}, destination : ${formDetails.villeArrivee}. Date Aller : ${formDetails.dateDepart}, Date Retour : ${formDetails.dateRetour}.`;
+    void sendMessage(messageSynthese, "coordonnees");
+  };
+
+  const submitCoordonnees = (e: React.FormEvent) => {
+    e.preventDefault();
+    const messageContact = `Coordonnées de contact : Nom: ${formCoordonnees.nom}, Email: ${formCoordonnees.email}. Calculez mon devis complet.`;
+    void sendMessage(messageContact, "final");
+  };
+
+  const handleManualSend = () => {
+    if (!inputValue.trim()) return;
+    void sendMessage(inputValue);
+    setInputValue("");
+  };
 
   return (
     <div className="flex h-screen w-full bg-white font-sans text-slate-900 overflow-hidden">
       
-      {/* 1. SIDEBAR GAUCHE (Historique) */}
-      <div className="hidden md:block">
-        <ChatSidebar 
-          history={history} 
-          activeChatId={activeChatId} 
-          onNewChat={() => {}} 
-          onSelectChat={(id: string) => setActiveChatId(id)} 
-        />
-      </div>
+      <ChatSidebar history={history} onNewChat={() => {}} activeChatId={activeChatId} onSelectChat={(id: string) => setActiveChatId(id)} />
 
-      {/* 2. CENTRE : CHAT ET HEADER */}
-      <section className={`flex-1 flex flex-col relative z-10 border-r border-slate-200 min-w-0 bg-white ${view === "chat" ? "flex" : "hidden lg:flex"}`}>
-        
-        {/* Header Designé */}
+      {/* CENTRE : CHAT COMPLET */}
+      <section className="flex-1 flex flex-col relative z-10 border-r border-slate-200 min-w-0 bg-white">
         <header className="h-14 flex items-center justify-between px-6 shrink-0 bg-white border-b border-slate-100">
           <div className="flex items-center gap-2 text-slate-800">
-            <span className="font-medium text-sm">Agent Logistique IA</span>
-            <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide flex items-center gap-1">
-              <Check className="w-3 h-3" /> Connecté OSRM
-            </span>
-          </div>
-          
-          {/* Bascule Mobile : Bouton "Voir Carte" */}
-          <div className="flex lg:hidden gap-2">
-            <button onClick={() => setView("carte")} className="text-xs bg-slate-100 px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 hover:bg-slate-200 transition-colors">
-              <MapIcon className="w-3 h-3" /> Voir Carte
-            </button>
+             <span className="font-medium text-sm">Agent Logistique IA</span>
+             <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide flex items-center gap-1">
+                <Check className="w-3 h-3" /> Connecté OSRM
+             </span>
           </div>
         </header>
 
-        {/* Espace de discussion (Composant séparé) */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <DevisChat
-            messages={messages}
-            isSending={isSending}
-            onSend={sendMessage}
-            onConfirmVehicule={confirmVehicule}
-          />
+        {/* LOG DES MESSAGES DANS LE STYLE D'ORIGINE */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-32 py-10 space-y-10 scroll-smooth">
+          {messages.map((msg, i) => {
+            const isLastMessage = i === messages.length - 1;
+            return (
+              <div key={msg.id || i} className="flex flex-col w-full animate-fadeIn">
+                
+                {/* Rendu Utilisateur */}
+                {msg.role === "user" && (
+                  <div className="flex justify-end mb-2">
+                    <div className="bg-slate-100 border border-slate-200/50 text-slate-800 px-5 py-3 rounded-2xl text-[14px] leading-relaxed max-w-[80%] font-medium">
+                      {msg.content}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rendu Assistant IA */}
+                {msg.role === "assistant" && (
+                  <div className="flex gap-4 w-full">
+                    <div className="w-8 h-8 rounded-lg bg-lime-100/50 border border-lime-200/50 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-lime-600" />
+                    </div>
+                    <div className="flex-1 space-y-4 pt-1">
+                      {msg.content && <p className="text-slate-800 text-[15px] leading-relaxed">{msg.content}</p>}
+
+                      {/* ÉTAPE 1 : BOUTONS TYPES (Seulement si c'est le dernier message actif) */}
+                      {msg.componentType === "type" && currentStep === "type" && isLastMessage && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl mt-4">
+                          {[{ id: "Aller-Retour", t: "Aller-Retour" }, { id: "Aller simple", t: "Aller Simple" }, { id: "Circuit", t: "Circuit" }].map(btn => (
+                            <button key={btn.id} onClick={() => selectType(btn.id)} className="flex flex-col items-start bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 transition-all text-left shadow-sm">
+                              <span className="font-semibold text-sm text-slate-900">{btn.t}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* ÉTAPE 2 : COMPOSANT VOYAGEURS */}
+                      {msg.componentType === "voyageurs" && currentStep === "voyageurs" && isLastMessage && (
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          {["10-20 pax", "20-50 pax", "50-75 pax", "100+ pax"].map(t => (
+                            <button key={t} onClick={() => selectVoyageurs(t)} className="bg-white border border-slate-200 hover:border-slate-400 text-slate-700 font-medium text-sm rounded-lg px-5 py-2.5 transition-colors shadow-sm">{t}</button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* ÉTAPE 3 : FORMULAIRE VILLES ET DATES */}
+                      {msg.componentType === "details" && currentStep === "details" && isLastMessage && (
+                        <form onSubmit={submitDetails} className="w-full max-w-2xl border border-slate-200 rounded-xl p-6 space-y-6 mt-4 shadow-sm bg-white">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-2">Ville de départ</label>
+                              <input type="text" required className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-slate-400" value={formDetails.villeDepart} onChange={e => setFormDetails({...formDetails, villeDepart: e.target.value})} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-2">Destination</label>
+                              <input type="text" required className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-slate-400" value={formDetails.villeArrivee} onChange={e => setFormDetails({...formDetails, villeArrivee: e.target.value})} />
+                            </div>
+                            <div><label className="block text-xs font-semibold text-slate-700 mb-2">Date Aller</label><input type="date" required className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none text-slate-600" value={formDetails.dateDepart} onChange={e => setFormDetails({...formDetails, dateDepart: e.target.value})} /></div>
+                            <div><label className="block text-xs font-semibold text-slate-700 mb-2">Date Retour</label><input type="date" required className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none text-slate-600" value={formDetails.dateRetour} onChange={e => setFormDetails({...formDetails, dateRetour: e.target.value})} /></div>
+                          </div>
+                          <div className="pt-2">
+                             <button type="submit" className="bg-slate-900 text-white rounded-lg px-6 py-2.5 text-sm font-medium hover:bg-slate-800 transition-colors w-max">Valider l'itinéraire</button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* ÉTAPE 4 : LOADING TRANSITIONNEL */}
+                      {currentStep === "loading" && isLastMessage && (
+                        <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 flex items-center gap-4">
+                          <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                          <span className="text-sm font-medium text-slate-600">Recherche de la route réelle et calcul RSE...</span>
+                        </div>
+                      )}
+
+                      {/* ÉTAPE 5 : COORDONNÉES CLIENT */}
+                      {msg.componentType === "coordonnees" && currentStep === "coordonnees" && isLastMessage && (
+                        <form onSubmit={submitCoordonnees} className="w-full max-w-sm border border-slate-200 rounded-xl p-5 space-y-4 mt-4 bg-white shadow-sm">
+                          <input type="text" required placeholder="Votre nom" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-slate-400" value={formCoordonnees.nom} onChange={e => setFormCoordonnees({...formCoordonnees, nom: e.target.value})} />
+                          <input type="email" required placeholder="Email pro" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-slate-400" value={formCoordonnees.email} onChange={e => setFormCoordonnees({...formCoordonnees, email: e.target.value})} />
+                          <button type="submit" className="w-full bg-slate-900 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-slate-800 transition-colors">Découvrir mon devis</button>
+                        </form>
+                      )}
+
+                      {/* ÉTAPE 6 : COMPOSANT FINAL DEVIS CARD */}
+                      {msg.kind === "devis" && msg.devis && (
+                        <div className="w-full max-w-xl border border-slate-200 rounded-xl p-6 mt-4 shadow-sm bg-white">
+                          <div className="flex justify-between items-start mb-6 border-b border-slate-100 pb-4">
+                            <span className="font-semibold text-base text-slate-900">Devis RSE Neotravel</span>
+                            <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold px-2 py-1 rounded uppercase flex items-center gap-1"><Shield className="w-3 h-3" /> Sécurisé</span>
+                          </div>
+                          
+                          <div className="flex justify-between items-end bg-slate-50 rounded-lg p-4 border border-slate-100">
+                            <div>
+                               <p className="text-[11px] font-semibold text-slate-500 uppercase mb-0.5">Total estimé TTC</p>
+                               <p className="text-2xl font-bold text-slate-900">{msg.devis.montant_ttc} €</p>
+                            </div>
+                            <button className="bg-lime-400 text-slate-900 text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-lime-500 transition-colors">Réserver</button>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          
+          {/* Loader de saisie texte classique */}
+          {isSending && currentStep !== "loading" && (
+            <div className="flex gap-4 w-full animate-fadeIn">
+               <div className="w-8 h-8 rounded-lg bg-lime-100/50 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-lime-600 animate-spin" />
+               </div>
+               <div className="pt-1"><span className="text-sm text-slate-400">L'agent analyse vos données...</span></div>
+            </div>
+          )}
+          <div ref={chatBottomRef} />
+        </div>
+
+        {/* INPUT DE DIALOGUE TEXTUEL BAS DE PAGE */}
+        <div className="p-4 bg-white border-t border-slate-200/60 sticky bottom-0">
+           <div className="max-w-3xl mx-auto flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 shadow-sm focus-within:border-slate-400 transition-all">
+              <textarea 
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={e => { if(e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleManualSend(); }}}
+                placeholder="Discutez avec l'agent..." 
+                className="flex-1 bg-transparent border-none outline-none text-[15px] text-slate-800 placeholder:text-slate-400 resize-none py-2.5 ml-2 min-h-[44px]"
+                rows={1}
+                disabled={isSending}
+              />
+              <button onClick={handleManualSend} className="bg-slate-900 text-white p-2.5 mb-0.5 rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50" disabled={!inputValue.trim() || isSending}>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+           </div>
         </div>
       </section>
 
-      {/* 3. DROITE : CARTE & TÉLÉMÉTRIE */}
-      <section className={`lg:flex flex-1 max-w-[450px] relative flex-col shrink-0 border-l border-slate-200 bg-[#f9fafb] ${view === "carte" ? "flex" : "hidden"}`}>
-        
-        {/* Bascule Mobile : Bouton "Retour Chat" */}
-        <div className="lg:hidden h-14 flex items-center px-4 bg-white border-b border-slate-100 shrink-0">
-          <button onClick={() => setView("chat")} className="text-xs bg-slate-100 px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 hover:bg-slate-200 transition-colors">
-            <MessageSquare className="w-3 h-3" /> Retour au Chat
-          </button>
-        </div>
-
-        {/* Conteneur de la carte avec Télémétrie intégrée */}
-        <MapPanel
-          itineraire={itineraire}
-          selectedEtapeId={selectedEtapeId}
-          onSelectEtape={setSelectedEtapeId}
-        />
+      {/* DROITE : CARTE D'ORIGINE */}
+      <section className="hidden lg:flex flex-1 max-w-[450px] relative flex-col shrink-0 border-l border-slate-200 bg-[#f9fafb]">
+        <MapPanel itineraire={itineraire} isCalculating={currentStep === "loading" || isSending} />
       </section>
+
+      <style jsx global>{`
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 }

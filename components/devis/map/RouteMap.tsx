@@ -13,19 +13,32 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
+// MARQUEURS STYLISÉS (A et D comme sur ton image)
+const iconStart = L.divIcon({
+  html: `<div class="w-7 h-7 bg-emerald-500 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">A</div>`,
+  className: "",
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
+
+const iconEnd = L.divIcon({
+  html: `<div class="w-7 h-7 bg-slate-800 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">D</div>`,
+  className: "",
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
+
 interface RouteMapProps {
   routeCoords: [number, number][];
   startPoint?: { name: string; coords: [number, number] };
   endPoint?: { name: string; coords: [number, number] };
 }
 
-// 🎥 Composant magique qui "cadre" la caméra sur le trajet
 function MapBounds({ coords }: { coords: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
     if (coords && coords.length > 0) {
       const bounds = L.latLngBounds(coords);
-      // On ajoute un padding pour que la ligne ne touche pas les bords de l'écran
       map.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [coords, map]);
@@ -33,7 +46,6 @@ function MapBounds({ coords }: { coords: [number, number][] }) {
 }
 
 export function RouteMap({ routeCoords, startPoint, endPoint }: RouteMapProps) {
-  // Centre par défaut (Le centre de la France)
   const defaultCenter: [number, number] = [46.2276, 2.2137];
 
   return (
@@ -41,37 +53,36 @@ export function RouteMap({ routeCoords, startPoint, endPoint }: RouteMapProps) {
       center={startPoint?.coords || defaultCenter}
       zoom={6}
       style={{ height: "100%", width: "100%", zIndex: 0 }}
-      zoomControl={false} // On désactive les boutons + et - pour un design plus épuré
+      zoomControl={false}
     >
-      {/* 🗺️ Fond de carte ultra-design et clair (CartoDB Light) */}
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+        attribution='&copy; OpenStreetMap'
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
 
-      {/* 🔵 Le tracé de la route en bleu */}
+      {/* LIGNE EN POINTILLÉS NOIRS EXACTEMENT COMME TON IMAGE */}
       {routeCoords && routeCoords.length > 0 && (
         <>
-          <Polyline positions={routeCoords} color="#3b82f6" weight={5} opacity={0.8} />
+          <Polyline 
+            positions={routeCoords} 
+            color="#0f172a" 
+            weight={4} 
+            opacity={0.9} 
+            dashArray="8, 8" 
+          />
           <MapBounds coords={routeCoords} />
         </>
       )}
 
-      {/* 📍 Marqueur de Départ */}
       {startPoint && (
-        <Marker position={startPoint.coords}>
-          <Popup className="font-sans">
-            <span className="font-bold text-slate-900">Départ:</span> {startPoint.name}
-          </Popup>
+        <Marker position={startPoint.coords} icon={iconStart}>
+          <Popup><strong>Départ:</strong> {startPoint.name}</Popup>
         </Marker>
       )}
 
-      {/* 📍 Marqueur d'Arrivée */}
       {endPoint && (
-        <Marker position={endPoint.coords}>
-          <Popup className="font-sans">
-            <span className="font-bold text-slate-900">Arrivée:</span> {endPoint.name}
-          </Popup>
+        <Marker position={endPoint.coords} icon={iconEnd}>
+          <Popup><strong>Arrivée:</strong> {endPoint.name}</Popup>
         </Marker>
       )}
     </MapContainer>

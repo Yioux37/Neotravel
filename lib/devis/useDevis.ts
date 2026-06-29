@@ -1,17 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  DevisChatMessage,
-  Devis,
-  Itineraire,
-  StructuredChatResponse,
-} from "./types";
+import type { DevisChatMessage, Devis, Itineraire, StructuredChatResponse } from "./types";
 import { DEMO_ITINERAIRE } from "./demoItineraire";
 
 type Status = "idle" | "sending" | "error";
 
-// Générateur d'ID unique pour les messages du chat
 function makeId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
@@ -22,63 +16,43 @@ const GREETING: DevisChatMessage = {
   id: "greeting",
   role: "assistant",
   kind: "text",
-  content:
-    "Voici votre trajet à droite. Choisissez un véhicule, ou précisez date et nombre de passagers — la carte se met à jour en direct.",
+  content: "Bonjour ! Configurons ensemble votre itinéraire routier.",
   createdAt: Date.now(),
+  componentType: "type", // On affiche directement le choix du type au début
 };
 
-// Initialisation des messages selon s'il y a une recherche depuis l'accueil ou non
-function initialMessages(hasQuery: boolean): DevisChatMessage[] {
-  if (hasQuery) return [GREETING];
-  return [
-    GREETING,
-    { id: "ask-vehicule", role: "assistant", kind: "vehicule", createdAt: Date.now() },
-  ];
-}
-
 export function useDevis(initialQuery: string | null = null) {
-  // === ÉTATS ===
-  const [messages, setMessages] = useState<DevisChatMessage[]>(() =>
-    initialMessages(Boolean(initialQuery)),
-  );
+  const [messages, setMessages] = useState<DevisChatMessage[]>(() => [GREETING]);
   const [itineraire, setItineraire] = useState<Itineraire>(DEMO_ITINERAIRE);
   const [status, setStatus] = useState<Status>("idle");
-  const [selectedEtapeId, setSelectedEtapeId] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<string>("type");
   
-  // === RÉFÉRENCES ===
   const sessionId = useRef<string>(makeId());
   const seeded = useRef(false);
 
-  // === HELPERS D'AFFICHAGE ===
-  const pushText = useCallback((role: "user" | "assistant", content: string) => {
+  const pushText = useCallback((role: "user" | "assistant", content: string, componentType?: any) => {
     setMessages((prev) => [
       ...prev,
-      { id: makeId(), role, kind: "text", content, createdAt: Date.now() },
+      { id: makeId(), role, kind: "text", content, createdAt: Date.now(), componentType },
     ]);
   }, []);
 
   const pushDevisCard = useCallback((devis: Devis) => {
     setMessages((prev) => [
       ...prev,
-      { id: makeId(), role: "assistant", kind: "devis", devis, createdAt: Date.now() },
+      { id: makeId(), role: "assistant", kind: "devis", content: "", devis, createdAt: Date.now(), componentType: "final" },
     ]);
   }, []);
 
-  // === LA FONCTION MAGIQUE : CALCUL D'ITINÉRAIRE OSRM ===
+  // CALCUL GPS VIA OSRM
   const calculateRealRoute = useCallback(async (depart: string, arrivee: string) => {
     console.log(`🗺️ Calcul OSRM demandé : ${depart} → ${arrivee}`);
     try {
-      // 1. Géocodage Ville de Départ (Nominatim)
-      const startRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(depart)}&format=json&limit=1`
-      );
+      const startRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(depart)}&format=json&limit=1`);
       const startData = await startRes.json();
 
-      // 2. Géocodage Ville d'Arrivée (Nominatim)
       const endDest = arrivee.split(",")[0].trim();
-      const endRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endDest)}&format=json&limit=1`
-      );
+      const endRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endDest)}&format=json&limit=1`);
       const endData = await endRes.json();
 
       if (startData.length > 0 && endData.length > 0) {
@@ -87,19 +61,12 @@ export function useDevis(initialQuery: string | null = null) {
         const endLat = parseFloat(endData[0].lat);
         const endLon = parseFloat(endData[0].lon);
 
-        // 3. Routage réel (OSRM)
-        const osrmRes = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson`
-        );
+        const osrmRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson`);
         const osrmData = await osrmRes.json();
 
         if (osrmData.routes && osrmData.routes.length > 0) {
           const route = osrmData.routes[0];
-          // OSRM renvoie [lon, lat], Leaflet a besoin de [lat, lon]
-          const coordinates = route.geometry.coordinates.map((coord: [number, number]) => [
-            coord[1],
-            coord[0],
-          ]);
+          const coordinates = route.geometry.coordinates.map((coord: [number, number]) => [coord[1], coord[0]]);
 
           const newItineraire: Itineraire = {
             coords: coordinates,
@@ -110,24 +77,20 @@ export function useDevis(initialQuery: string | null = null) {
           };
 
           setItineraire(newItineraire);
-          console.log("✅ Itinéraire OSRM mis à jour avec succès :", newItineraire);
-          return true;
+          return newItineraire;
         }
       }
-      console.warn("⚠️ Nominatim ou OSRM n'a pas pu résoudre le trajet.");
-      return false;
+      return null;
     } catch (error) {
-      console.error("❌ Erreur lors du calcul de la route réelle :", error);
-      return false;
+      console.error("❌ Erreur OSRM :", error);
+      return null;
     }
   }, []);
 
-  // === COMMUNICATION AVEC L'IA N8N ===
+  // ENVOI DU TEXTE POST VERS L'IA
   const sendMessage = useCallback(
-    async (text: string) => {
-      console.log("🛠️ ETAPE 1 : Déclenchement de sendMessage :", text);
+    async (text: string, nextStepFallback?: any) => {
       const content = text.trim();
-
       if (!content || status === "sending") return;
 
       pushText("user", content);
@@ -141,78 +104,63 @@ export function useDevis(initialQuery: string | null = null) {
         });
 
         if (!res.ok) {
-          pushText("assistant", "L'agent est momentanément indisponible. Réessayez dans un instant.");
+          pushText("assistant", "L'agent est momentanément indisponible.");
           setStatus("error");
           return;
         }
 
         const data = (await res.json()) as StructuredChatResponse;
-        console.log("✅ ETAPE 4 : Données reçues de n8n :", data);
-
-        if (data.reply) pushText("assistant", data.reply);
         
-        // Mise à jour de la carte (avec l'analyse intelligente du texte de l'IA)
-        if (data.itineraire) {
-          setItineraire(data.itineraire);
-        } else {
-          // On additionne ce qu'a dit le client ET ce qu'a répondu l'IA pour maximiser les chances de trouver les villes
-          const textToAnalyze = content + " " + (data.reply || "");
-          
-          // Regex plus permissive qui gère "de X à Y", "de X vers Y", "X - Y", "X pour Y"
-          const match = textToAnalyze.match(/(?:de\s+|depuis\s+)?([A-Z][a-zà-ÿ]+)\s+(?:à|vers|pour|-)\s+([A-Z][a-zà-ÿ]+)/i);
-          
-          if (match && match[1] && match[2]) {
-            console.log("📍 Trajet détecté automatiquement :", match[1], "->", match[2]);
-            void calculateRealRoute(match[1], match[2]);
-          }
+        // On détermine la prochaine étape dictée par n8n, sinon on utilise le fallback local
+        const nextStep = data.componentType || nextStepFallback;
+        if (nextStep) setCurrentStep(nextStep);
+
+        if (data.reply) {
+          pushText("assistant", data.reply, nextStep);
+        }
+
+        // Radar intelligent pour mettre à jour la carte en lisant la réponse ou la demande
+        // 🛑 CORRECTIF DU BUG DE LA CARTE 🛑
+        // On IGNORE totalement les fausses données de la carte renvoyées par le backend (Paris-Portugal)
+        // On ne fait confiance qu'à notre analyse de texte et à OSRM.
+
+        const textToAnalyze = content + " " + (data.reply || "");
+        
+        // Regex ultra-intelligente qui détecte :
+        // 1. "de Paris à Lyon" (discussion naturelle)
+        // 2. "Départ de Lyon, destination : Marseille" (phrase secrète envoyée par notre formulaire)
+        const match = textToAnalyze.match(/(?:de\s+|depuis\s+|Départ de\s+)([A-Z][a-zà-ÿ\s-]+)(?:\s+(?:à|vers|pour|-)\s+|,\s*destination\s*:\s*)([A-Z][a-zà-ÿ\s-]+)/i);
+        
+        if (match && match[1] && match[2]) {
+          console.log("📍 Trajet détecté automatiquement :", match[1].trim(), "->", match[2].trim());
+          void calculateRealRoute(match[1].trim(), match[2].trim());
         }
 
         if (data.devis) pushDevisCard(data.devis);
 
         setStatus("idle");
       } catch (error) {
-        console.error("❌ Connexion impossible au serveur.", error);
-        pushText("assistant", "Connexion impossible pour l'instant. Vérifiez votre réseau et réessayez.");
+        pushText("assistant", "Erreur de connexion.");
         setStatus("error");
       }
     },
     [status, pushText, pushDevisCard, calculateRealRoute],
   );
 
-  // === INITIALISATION AUTOMATIQUE ===
   useEffect(() => {
     if (initialQuery && !seeded.current) {
-      console.log("🚀 Initialisation automatique depuis l'URL avec :", initialQuery);
       seeded.current = true;
-      void sendMessage(initialQuery);
+      void sendMessage(initialQuery, "voyageurs");
     }
   }, [initialQuery, sendMessage]);
 
-  // === CONFIRMATION VÉHICULE (DÉMO) ===
-  const confirmVehicule = useCallback(
-    (label: string) => {
-      pushText("user", `Véhicule : ${label}`);
-      const demoDevis: Devis = {
-        vehicule: label,
-        montant_ht: 1290,
-        montant_ttc: 1419,
-        rseConforme: true,
-      };
-      pushText("assistant", "Voici votre estimation pour ce trajet :");
-      pushDevisCard(demoDevis);
-    },
-    [pushText, pushDevisCard],
-  );
-
-  // === RETOUR DU HOOK ===
   return {
     messages,
     itineraire,
     status,
-    selectedEtapeId,
-    setSelectedEtapeId,
+    currentStep,
+    setCurrentStep,
     sendMessage,
-    confirmVehicule,
-    calculateRealRoute, 
+    calculateRealRoute,
   };
 }

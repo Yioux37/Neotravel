@@ -1,6 +1,3 @@
-// Types du funnel /devis. Le chat peut injecter des composants dans le fil,
-// et la carte est pilotée par un itinéraire structuré renvoyé par n8n.
-
 /* ---------- Cartographie / RSE ---------- */
 
 export type EtapeType = "depart" | "etape" | "pause" | "nuitee" | "destination";
@@ -9,13 +6,11 @@ export interface Etape {
   id: string;
   type: EtapeType;
   label: string;
-
   x: number;
   y: number;
   lat: number; 
   lng: number;
   heure?: string;
-
   rse?: string;
   itineraire?: string;
   ItineraireOSRM?: string;
@@ -25,21 +20,21 @@ export interface Etape {
 
 export type TraceType = "aller" | "circuit";
 
-export interface Itineraire {
-  type: TraceType;
-  etapes: Etape[];
-  distanceKm?: number;
-  dureeConduite?: string;
-}
-
-// Le nouveau format pour le départ et l'arrivée
 export interface PointItineraire {
   name: string;
   coords: [number, number];
 }
 
-// Le nouveau format de l'itinéraire OSRM complet
+/** * INTERFACE ITINÉRAIRE UNIFIÉE 
+ * Fusionne l'ancien système d'étapes et le nouveau tracé réel OSRM
+ */
 export interface Itineraire {
+  type?: TraceType;
+  etapes?: Etape[];
+  distanceKm?: number;
+  dureeConduite?: string;
+  
+  // Nouveaux champs requis pour le tracé réel OSRM
   coords: [number, number][]; // Tableau de coordonnées GPS [lat, lon]
   distance: number;           // Distance en km
   duration: number;           // Durée en minutes
@@ -60,10 +55,15 @@ export interface Devis {
 
 export type Role = "user" | "assistant";
 
+// Types des étapes du formulaire / entonnoir
+export type FunnelComponentType = "type" | "voyageurs" | "details" | "loading" | "coordonnees" | "final";
+
 interface BaseMessage {
   id: string;
   role: Role;
   createdAt: number;
+  // Permet d'associer un widget/formulaire visuel à un message précis
+  componentType?: FunnelComponentType; 
 }
 
 /** Bulle de texte classique */
@@ -93,4 +93,6 @@ export interface StructuredChatResponse {
   reply: string;
   itineraire?: Itineraire;
   devis?: Devis;
+  // Permet à n'importe quel message ou réponse de n8n de forcer l'affichage d'une étape
+  componentType?: FunnelComponentType; 
 }
