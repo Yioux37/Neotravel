@@ -1,36 +1,52 @@
 # NeoTravel
 
-Autocariste assisté par IA. Le prospect décrit son trajet en conversation,
-l'agent calcule un devis et le renvoie en PDF.
+Autocariste assisté par IA. Le prospect décrit son trajet en conversation, l'agent calcule un devis, affiche une interface interactive et génère un tracé cartographique réel.
 
 ## Principe d'architecture
 
-**L'agent décide, le code exécute.** Le front Next.js est une *interface*, pas
-un cerveau : il ne contient **aucune logique métier**. Tout le calcul (pricing,
-RSE, PDF, CRM, relances) vit dans **n8n**.
+**L'agent décide, le front-end sécurise et enrichit.** Le front Next.js sert d'interface de dialogue avec l'IA via **n8n**, mais il embarque également une couche d'intelligence logistique locale (calculs RSE, télémétrie réelle et persistance) pour garantir une expérience utilisateur fluide et sans hallucination visuelle.
 
-```
-Prospect ──> Front Next.js ──(webhook)──> (Agent IA + outils) ──> Airtable
-                  │                              │
-            /api/chat (proxy)        Lookup · calculer_devis · PDF · CRM · relance
-```
+                ┌────────────────────────┐
+                │     Prospect (UI)      │
+                └───────────┬────────────┘
+                            │
+                    (useDevis Hook)
+                            │
+    ┌───────────────────────┴───────────────────────┐
+    ▼                                               ▼
 
-Le seul rôle réseau du front : relayer les messages vers le webhook n8n
-(`app/api/chat/route.ts`) et afficher la réponse, structurée
-(`{ reply, itineraire?, devis? }`) pour piloter la carte du funnel `/devis`.
+┌───────────────┐                               ┌───────────────┐
+│  /api/chat    │                               │   OSRM API    │
+│  (Proxy n8n)  │                               │ (Nominatim)   │
+└───────┬───────┘                               └───────┬───────┘
+│ (Webhook)                                     │
+▼                                               ▼
+┌───────────────┐                               ┌───────────────┐
+│   Agent IA    │                               │ Tracé Réel    │
+│  + Airtable   │                               │ GPS & Bornes  │
+└───────────────┘                               └───────────────┘
+
+
+Le front-end intercepte les messages textuels de n8n pour en extraire dynamiquement les informations financières si le bloc structuré fait défaut, évitant ainsi tout problème de rendu.
+
+## Spécificités Logistiques & Règles Métiers (Front-end)
+
+Pour coller aux réalités du transport par autocar et à la réglementation sociale européenne (RSE), le hook `useDevis` recalcule automatiquement la télémétrie d'après les règles suivantes :
+* **Vitesse moyenne fixe :** Le temps de conduite pure est indexé sur une moyenne stricte de **70 km/h** calculée sur la distance réelle, indépendamment des estimations pour véhicules légers.
+* **Pauses RSE obligatoires :** Le système injecte automatiquement **20 minutes de pause toutes les 2 heures (120 minutes)** de conduite pure calculée.
+* **Gestion Aller-Retour :** Si l'utilisateur sélectionne l'option "Aller-Retour", la distance kilométrique renvoyée par OSRM est automatiquement **doublée**, et les temps de conduite ainsi que les pauses associées sont recalculés sur cette distance globale.
 
 ## Stack
 
-- **Next.js 16** (App Router, Turbopack) · **React 19** · **TypeScript**
-- **Tailwind CSS v4** · **lucide-react**
-- Fontes : Bricolage Grotesque (display) + Geist (sans/mono)
+* **Next.js 16** (App Router, Turbopack) · **React 19** · **TypeScript**
+* **Tailwind CSS v4** · **lucide-react**
+* **Leaflet & React-Leaflet** (Cartographie OpenStreetMap open-source)
+* Fontes : Bricolage Grotesque (display) + Geist (sans/mono)
 
 ## Direction artistique
 
-Identité unique slate-950 / lime fluo (`#a3e635`) + couleurs sémantiques de
-cartographie (RSE). `slate-950` est aligné sur la DA (`#0f1115`) dans
-`app/globals.css`. Tokens du funnel : `--color-night`, `--color-lime`,
-`--color-rse`, `--color-pause`, `--color-nuit`, etc.
+Identité unique slate-950 / lime fluo (`#a3e635`) + couleurs sémantiques de cartographie. Le thème `slate-950` est configuré sur la DA (`#0f1115`) dans `app/globals.css`. 
+Les marqueurs Leaflet sont personnalisés via des `divIcon` CSS épurés (Point **A** en émeraude, Point **B** en ardoise sombre) reliés par une polyline noire en pointillés (`dashArray`).
 
 ## Démarrage
 
@@ -38,68 +54,57 @@ cartographie (RSE). `slate-950` est aligné sur la DA (`#0f1115`) dans
 npm install
 cp .env.example .env.local   # renseigner N8N_WEBHOOK_URL
 npm run dev                  # http://localhost:3000
-```
 
-> `/devis` tourne en mode démo sans n8n (itinéraire + parcours scénarisés).
-> Le chat réel et l'amorçage depuis la landing nécessitent `N8N_WEBHOOK_URL`.
+    /devis initialise un premier projet générique par défaut au démarrage. Le chat réel et l'interconnexion complète avec l'Agent IA nécessitent de renseigner l'adresse N8N_WEBHOOK_URL.
 
-## Structure
+Structure
 
-```
 app/
   page.tsx            Landing (hero + sections)
   devis/page.tsx      Funnel split-screen ; lit ?q= (searchParams async)
   api/chat/route.ts   Proxy webhook vers n8n (Node runtime)
-  layout.tsx · globals.css · icon.svg
+  layout.tsx · globals.css
 components/
-  landing/            Header, Hero (+ HeroSearchBox), Reassurance, Usages,
-                      Process, Fleet, Reviews, Faq, Footer
-  devis/              Funnel : DevisShell, chat/, map/
+  landing/            Header, Hero, Fleet, Reviews, Faq, Footer...
+  devis/              Funnel UI : DevisShell, widgets de formulaires intégrés
+  components/devis/map/
+    MapPanel.tsx      Panneau de télémétrie allongé (Bannière supérieure Distance & Temps)
+    RouteMap.tsx      Moteur de rendu Leaflet (Tracé en pointillés, marqueurs A et B)
 lib/
-  landing/content.ts  Données de la landing
-  devis/              État partagé chat↔carte (useDevis), types, démo
-n8n/
-  calculer_devis.js   Référence du nœud Code n8n (NE s'exécute pas dans Next)
-```
+  devis/
+    types.ts          Contrats unifiés (Itinéraire hybride OSRM/Étapes, ChatSession)
+    useDevis.ts       Cerveau synchrone (localStorage, OSRM, RSE 70km/h, Parseur anti-NaN)
+    demoItineraire.ts Tracé géographique par défaut
 
-## Parcours
+Fonctionnalités Avancées du Funnel
+1. Persistance & Multi-sessions (Mémoire locale)
 
-1. Landing `/` : le hero est une **barre de recherche** (glassmorphism). Saisie
-   ou clic sur une suggestion / un cas d'usage → redirection vers
-   `/devis?q=<demande>`.
-2. Funnel `/devis` : split-screen. Gauche = chat IA (formulaires injectés dans
-   le fil). Droite = carte vectorielle (tracé animé + marqueurs RSE cliquables).
-   La demande `?q=` amorce automatiquement la conversation.
+Toutes les discussions, l'état d'avancement dans l'entonnoir (currentStep), ainsi que les coordonnées géographiques des tracés sont sauvegardés automatiquement dans le localStorage du navigateur sous la clé neotravel_chats.
 
-## Contrat n8n (réponse de `/api/chat`)
+    L'utilisateur peut créer une nouvelle discussion via le bouton + Nouveau projet.
 
-```json
+    La barre latérale permet de naviguer instantanément entre les différentes sessions historiques.
+
+    Les projets sont renommés dynamiquement à la volée dès qu'un trajet est identifié (ex: Lyon → Marseille).
+
+2. Parseur de Devis Robuste (Anti-NaN)
+
+Dans le cas où l'IA répond par un bloc Markdown brut contenant les prix (ex: Montant TTC : 4 582,46 €), un intercepteur Regex nettoie la chaîne de caractères (suppression de tous les formats d'espaces typographiques, insécables ou Unicode) afin d'isoler les valeurs numériques. Il génère alors automatiquement le composant graphique carte de devis épuré avec son bouton "Réserver" sans afficher de texte brut dans le fil ni générer de mention NaN €.
+3. Radar de Trajet Intelligent
+
+La fonction sendMessage analyse en continu les entrées utilisateur et les réponses de l'IA à l'aide d'expressions régulières adaptées aux formulations naturelles ("de Lyon à...", "entre Paris et..."). Dès qu'une correspondance géographique valide est isolée, Nominatim géocode les adresses et OSRM actualise immédiatement la carte de droite.
+Contrat n8n attendu (réponse de /api/chat)
+JSON
+
 {
-  "reply": "Voici votre estimation…",
-  "itineraire": {
-    "type": "aller",
-    "distanceKm": 465,
-    "dureeConduite": "4 h 35",
-    "etapes": [
-      { "id": "e1", "type": "depart", "label": "Paris", "x": 42, "y": 22, "heure": "08:00", "rse": "…" }
-    ]
-  },
-  "devis": { "montant_ht": 1290, "montant_ttc": 1419, "vehicule": "Autocar standard", "rseConforme": true }
+  "reply": "Voici votre estimation...",
+  "componentType": "details",
+  "devis": { 
+    "montant_ht": 4582.46, 
+    "montant_ttc": 5040.71, 
+    "vehicule": "Aller-Retour", 
+    "rseConforme": true 
+  }
 }
-```
 
-`type` d'étape ∈ `depart | etape | pause | nuitee | destination`.
-`x`/`y` : coordonnées normalisées 0..100 (carte vectorielle, pas un GPS).
-`reply` seul suffit ; `itineraire` et `devis` sont optionnels.
-
-## Variables d'environnement
-
-| Variable | Rôle |
-| --- | --- |
-| `N8N_WEBHOOK_URL` | URL du webhook n8n (serveur uniquement) |
-| `N8N_WEBHOOK_SECRET` | Secret partagé envoyé en en-tête `x-webhook-secret` (recommandé) |
-
-## Modèle de branches
-
-`front/*`, `backend/*`, `automation/*`, `docs/*` → `dev` → `main`.
-Le front (landing + funnel `/devis`) est intégré sur `front/ui-ux`.
+Le paramètre componentType peut accepter les valeurs suivants pour forcer l'affichage d'un widget à l'écran : type | voyageurs | details | loading | coordonnees | final.
