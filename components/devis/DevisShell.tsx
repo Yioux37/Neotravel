@@ -359,12 +359,11 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                               </p>
                               <p className="text-sm font-semibold text-slate-800">
                                 {itineraire?.start?.name || "Lyon"} &rarr;{" "}
-                                {itineraire?.end?.name || "Bonjour"}
+                                {itineraire?.end?.name || "Inconnu"}
                               </p>
                             </div>
                           </div>
 
-                          {/* 👑 LE BLOC TOTAL CORRIGÉ EXACTEMENT COMME SUR L'IMAGE 👑 */}
                           <div className="flex justify-between items-center bg-[#f8fafc] rounded-2xl p-5 border border-slate-100">
                             <div className="flex flex-col">
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -375,12 +374,13 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                               <p className="text-3xl font-black text-slate-900 tracking-tight">
                                 {msg.devis.montant_ttc > 0
                                   ? `${Math.round(msg.devis.montant_ttc).toLocaleString("fr-FR")} €`
-                                  : msg.devis.montant_ht > 0
-                                    ? `${Math.round(msg.devis.montant_ht).toLocaleString("fr-FR")} €`
-                                    : "1 420 €"}
+                                  : `${Math.round(msg.devis.montant_ht).toLocaleString("fr-FR")} €`}
                               </p>
                             </div>
-                            <button className="bg-[#a3e635] text-slate-900 font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-lime-500 active:scale-95 transition-all shadow-sm">
+                            <button
+                              id="reserve-button"
+                              className="bg-[#a3e635] text-slate-900 font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-lime-500 active:scale-95 transition-all shadow-sm"
+                            >
                               Réserver
                             </button>
                           </div>
