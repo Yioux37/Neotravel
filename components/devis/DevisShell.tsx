@@ -267,7 +267,7 @@ export function DevisShell({ initialQuery }: { initialQuery: string | null }) {
                                 type="submit"
                                 className="bg-slate-900 text-white rounded-lg px-6 py-2.5 text-sm font-medium hover:bg-slate-800 transition-colors w-max"
                               >
-                                Valider l'itinéraire
+                                Valider l itinéraire
                               </button>
                             </div>
                           </form>
