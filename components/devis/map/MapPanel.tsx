@@ -1,38 +1,46 @@
 "use client";
 
-import { useState } from "react";
-import { Shield, Navigation, Clock } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Shield, Navigation, Clock, Loader2 } from "lucide-react";
 import type { Itineraire } from "@/lib/devis/types";
-import { RouteMap } from "./RouteMap";
+
+// Import dynamique de ta NOUVELLE carte (sans erreur SSR)
+const RouteMap = dynamic(
+  () => import("./RouteMap").then((mod) => mod.RouteMap),
+  { ssr: false }
+);
 
 interface MapPanelProps {
-  itineraire: Itineraire;
-  selectedEtapeId: string | null;
-  onSelectEtape: (id: string | null) => void;
+  itineraire: Itineraire | null;
+  isCalculating: boolean; // Permet d'afficher le spinner
+  selectedEtapeId?: string | null;
+  onSelectEtape?: (id: string | null) => void;
 }
+
+// Helper pour formater proprement les minutes venant d'OSRM
+const formatDuration = (mins: number | string | undefined) => {
+  if (!mins || mins === "N/A") return '--';
+  const m = Number(mins);
+  if (isNaN(m)) return '--';
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${(m % 60).toString().padStart(2, '0')}`;
+};
 
 export function MapPanel({
   itineraire,
+  isCalculating,
   selectedEtapeId,
   onSelectEtape,
 }: MapPanelProps) {
-  // État pour stocker les calculs en direct d'OSRM (distance en mètres, durée en secondes)
-  const [routeMetrics, setRouteMetrics] = useState<{ distance: number; duration: number } | null>(null);
-
-  // --- CALCULS ---
-  // Distance : on passe de mètres à kilomètres (ou on garde la valeur par défaut)
-  const displayDistance = routeMetrics 
-    ? Math.round(routeMetrics.distance / 1000) 
-    : itineraire.distanceKm;
-
-  // Temps : on calcule les heures et les minutes à partir des secondes
-  const hours = routeMetrics ? Math.floor(routeMetrics.duration / 3600) : null;
-  const minutes = routeMetrics ? Math.round((routeMetrics.duration % 3600) / 60) : null;
+  
+  // Les données arrivent déjà toutes prêtes depuis l'IA et OSRM
+  const displayDistance = itineraire?.distance;
+  const displayDuration = itineraire?.duration;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-cloud map-grid">
       
-      {/* Ambiance : halos colorés diffus */}
+      {/* Ambiance : halos colorés diffus de ton design */}
       <div
         aria-hidden
         className="pointer-events-none absolute -left-16 top-10 z-0 h-72 w-72 rounded-full bg-aller/20 blur-3xl"
@@ -43,7 +51,7 @@ export function MapPanel({
       />
 
       {/* Badge RSE (haut gauche) */}
-      <div className="absolute left-5 top-5 z-10 flex items-center gap-2 rounded-full border border-white/40 bg-white/95 px-3.5 py-2 shadow-xl backdrop-blur-sm">
+      <div className="absolute left-5 top-5 z-10 flex items-center gap-2 rounded-full border border-white/40 bg-white/95 px-3.5 py-2 shadow-xl backdrop-blur-sm pointer-events-auto">
         <Shield className="h-4 w-4 text-rse" aria-hidden />
         <span className="text-[10px] font-bold uppercase tracking-widest text-night">
           Conformité RSE assurée
@@ -51,42 +59,40 @@ export function MapPanel({
       </div>
 
       {/* Badge distance / durée (haut droite) dynamique */}
-      {(displayDistance !== undefined || routeMetrics || itineraire.dureeConduite) && (
-        <div className="absolute right-5 top-5 z-10 flex items-center gap-4 rounded-2xl border border-white/40 bg-white/95 px-4 py-2.5 shadow-xl backdrop-blur-sm">
-          
-          {/* Section Kilomètres */}
-          {displayDistance !== undefined && (
-            <span className="flex items-center gap-1.5 font-mono text-sm font-semibold text-night">
-              <Navigation className="h-3.5 w-3.5 text-aller" aria-hidden />
-              {displayDistance} km
-            </span>
-          )}
+      <div className="absolute right-5 top-5 z-10 flex items-center gap-4 rounded-2xl border border-white/40 bg-white/95 px-4 py-2.5 shadow-xl backdrop-blur-sm pointer-events-auto min-h-[44px]">
+        {isCalculating ? (
+          // Affichage du Loader rotatif pendant que la route se calcule
+          <div className="flex items-center gap-2 text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Calcul RSE...</span>
+          </div>
+        ) : (
+          <>
+            {/* Section Kilomètres */}
+            {displayDistance !== undefined && displayDistance > 0 && (
+              <span className="flex items-center gap-1.5 font-mono text-sm font-semibold text-night">
+                <Navigation className="h-3.5 w-3.5 text-aller" aria-hidden />
+                {displayDistance} km
+              </span>
+            )}
 
-          {/* Section Temps */}
-          {(hours !== null || itineraire.dureeConduite) && (
-            <span className="flex items-center gap-1.5 font-mono text-sm font-semibold text-night">
-              <Clock className="h-3.5 w-3.5 text-pause" aria-hidden />
-              {routeMetrics ? (
-                // Si on a les données OSRM, on formate proprement
-                hours! > 0 
-                  ? `${hours} h ${minutes!.toString().padStart(2, '0')}` 
-                  : `${minutes} min`
-              ) : (
-                // Sinon on affiche le texte par défaut du mock
-                itineraire.dureeConduite
-              )}
-            </span>
-          )}
-        </div>
-      )}
+            {/* Section Temps */}
+            {displayDuration !== undefined && displayDuration > 0 && (
+              <span className="flex items-center gap-1.5 font-mono text-sm font-semibold text-night">
+                <Clock className="h-3.5 w-3.5 text-pause" aria-hidden />
+                {formatDuration(displayDuration)}
+              </span>
+            )}
+          </>
+        )}
+      </div>
 
-      {/* Carte Leaflet en fond de la vue */}
+      {/* Carte Leaflet en fond de la vue, branchée sur les nouvelles variables */}
       <div className="absolute inset-0 z-0">
         <RouteMap 
-          itineraire={itineraire} 
-          selectedId={selectedEtapeId}
-          onSelect={onSelectEtape}
-          onRouteUpdate={(dist, dur) => setRouteMetrics({ distance: dist, duration: dur })}
+          routeCoords={itineraire?.coords || []} 
+          startPoint={itineraire?.start} 
+          endPoint={itineraire?.end} 
         />
       </div>
 

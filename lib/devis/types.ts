@@ -9,14 +9,18 @@ export interface Etape {
   id: string;
   type: EtapeType;
   label: string;
-  /** Coordonnées normalisées 0..100 dans le canevas de la carte vectorielle */
+
   x: number;
   y: number;
   lat: number; 
   lng: number;
   heure?: string;
-  /** Explication réglementaire révélée au clic sur le marqueur */
+
   rse?: string;
+  itineraire?: string;
+  ItineraireOSRM?: string;
+  dist?: number;
+  dur?: number;
 }
 
 export type TraceType = "aller" | "circuit";
@@ -26,6 +30,21 @@ export interface Itineraire {
   etapes: Etape[];
   distanceKm?: number;
   dureeConduite?: string;
+}
+
+// Le nouveau format pour le départ et l'arrivée
+export interface PointItineraire {
+  name: string;
+  coords: [number, number];
+}
+
+// Le nouveau format de l'itinéraire OSRM complet
+export interface Itineraire {
+  coords: [number, number][]; // Tableau de coordonnées GPS [lat, lon]
+  distance: number;           // Distance en km
+  duration: number;           // Durée en minutes
+  start?: PointItineraire;    // Point de départ
+  end?: PointItineraire;      // Point d'arrivée
 }
 
 /* ---------- Devis ---------- */

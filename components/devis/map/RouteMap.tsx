@@ -1,53 +1,79 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import type { Itineraire } from "@/lib/devis/types";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
-// Chargement dynamique obligatoire pour Leaflet (qui a besoin de window)
-const WorldMap = dynamic(() => import("./WorldMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-transparent">
-      <span className="text-sm font-medium text-night/50">Chargement de la carte...</span>
-    </div>
-  ),
+// 🛠️ Répare le bug des icônes Leaflet invisibles dans Next.js
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: string })._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
 interface RouteMapProps {
-  itineraire: Itineraire;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  // Fonction de callback pour remonter les calculs d'OSRM à MapPanel
-  onRouteUpdate?: (distance: number, duration: number) => void;
+  routeCoords: [number, number][];
+  startPoint?: { name: string; coords: [number, number] };
+  endPoint?: { name: string; coords: [number, number] };
 }
 
-export function RouteMap({ itineraire, selectedId, onSelect, onRouteUpdate }: RouteMapProps) {
-  if (itineraire.etapes.length < 2) return null;
+// 🎥 Composant magique qui "cadre" la caméra sur le trajet
+function MapBounds({ coords }: { coords: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords && coords.length > 0) {
+      const bounds = L.latLngBounds(coords);
+      // On ajoute un padding pour que la ligne ne touche pas les bords de l'écran
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [coords, map]);
+  return null;
+}
 
-  // --- HACK GPS TEMPORAIRE ---
-  // (À retirer une fois que ton backend/mock enverra directement `lat` et `lng`)
-  const itineraireAvecGPS = {
-    ...itineraire,
-    etapes: itineraire.etapes.map((etape) => {
-      let lat = etape.lat || 46.2276; 
-      let lng = etape.lng || 2.2137;
-
-      const labelLower = etape.label.toLowerCase();
-      if (labelLower.includes("paris")) { lat = 48.8566; lng = 2.3522; }
-      else if (labelLower.includes("beaune")) { lat = 47.0260; lng = 4.8390; }
-      else if (labelLower.includes("lyon")) { lat = 45.7640; lng = 4.8357; }
-      
-      return { ...etape, lat, lng };
-    })
-  };
-  // ---------------------------
+export function RouteMap({ routeCoords, startPoint, endPoint }: RouteMapProps) {
+  // Centre par défaut (Le centre de la France)
+  const defaultCenter: [number, number] = [46.2276, 2.2137];
 
   return (
-    <WorldMap 
-      itineraire={itineraireAvecGPS} 
-      selectedId={selectedId} 
-      onSelect={onSelect}
-      onRouteUpdate={onRouteUpdate} // On fait passer la fonction au composant enfant
-    />
+    <MapContainer
+      center={startPoint?.coords || defaultCenter}
+      zoom={6}
+      style={{ height: "100%", width: "100%", zIndex: 0 }}
+      zoomControl={false} // On désactive les boutons + et - pour un design plus épuré
+    >
+      {/* 🗺️ Fond de carte ultra-design et clair (CartoDB Light) */}
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+      />
+
+      {/* 🔵 Le tracé de la route en bleu */}
+      {routeCoords && routeCoords.length > 0 && (
+        <>
+          <Polyline positions={routeCoords} color="#3b82f6" weight={5} opacity={0.8} />
+          <MapBounds coords={routeCoords} />
+        </>
+      )}
+
+      {/* 📍 Marqueur de Départ */}
+      {startPoint && (
+        <Marker position={startPoint.coords}>
+          <Popup className="font-sans">
+            <span className="font-bold text-slate-900">Départ:</span> {startPoint.name}
+          </Popup>
+        </Marker>
+      )}
+
+      {/* 📍 Marqueur d'Arrivée */}
+      {endPoint && (
+        <Marker position={endPoint.coords}>
+          <Popup className="font-sans">
+            <span className="font-bold text-slate-900">Arrivée:</span> {endPoint.name}
+          </Popup>
+        </Marker>
+      )}
+    </MapContainer>
   );
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 // Si tu as le type exporté, tu peux l'importer : import type { StructuredChatResponse } from "@/lib/devis/types";
 
 export default function ChatApp() {
+  console.log("ChatApp rendu");
   const [message, setMessage] = useState("");
   const [historique, setHistorique] = useState<{ role: "user" | "agent"; text: string }[]>([]);
   const [chargement, setChargement] = useState(false);
