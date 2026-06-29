@@ -1,0 +1,983 @@
+{
+  "name": "Relance automatique",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3936,
+        992
+      ],
+      "id": "058bcc3b-d299-47e4-8381-768f453e580c",
+      "name": "Schedule: toutes les 5 min"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblOiVDXK7R0UJmIe",
+          "mode": "list",
+          "cachedResultName": "Demande (lead)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -4144,
+        688
+      ],
+      "id": "3ee2811e-8347-48de-be35-d7743b13efb0",
+      "name": "A - Search: Demandes non finalisées",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst items = $input.all();\nconst candidats = [];\n\nfor (const item of items) {\n  const d = item.json;\n  if (!d.created_at || !d.email) continue;\n\n  const created = new Date(d.created_at);\n  const minutesPassed = (now - created) / 60000;\n  const nbRelances = Number(d.nb_relances_form || 0);\n\n  const doitRelancer =\n    (nbRelances === 0 && minutesPassed >= 5) ||\n    (nbRelances === 1 && minutesPassed >= 10);\n\n  if (doitRelancer) {\n    candidats.push({ json: { ...d, minutes_passed: Math.floor(minutesPassed) } });\n  }\n}\n\nif (candidats.length === 0) return [{ json: { _aucun_candidat: true } }];\nreturn candidats;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3936,
+        688
+      ],
+      "id": "60978135-47a9-46ee-92dd-e9e946dc9756",
+      "name": "A - Filtre: 5 min / 10 min"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "a-has",
+              "leftValue": "={{ $json._aucun_candidat }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEqual"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3712,
+        688
+      ],
+      "id": "f05e5b17-3c9a-4e5d-8806-c18996d85a72",
+      "name": "A - Des abandons à relancer ?"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -3488,
+        560
+      ],
+      "id": "e7f918f8-3ea0-41bf-9448-4b9db5fdfa7d",
+      "name": "A - Loop: 1 prospect à la fois"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst nbRelances = Number(d.nb_relances_form || 0);\nconst numRelance = nbRelances + 1;\n\nconst nomProspect = d.nom_prospect || 'Bonjour';\nconst villeDepart = d.ville_depart || '';\nconst villeDest = d.ville_destination || '';\nconst trajet = (villeDepart && villeDest) ? `${villeDepart} → ${villeDest}` : 'votre trajet en autocar';\n\nconst isFirst = numRelance === 1;\nconst subject = isFirst\n  ? 'Votre demande de devis Neotravel est en attente'\n  : '[Rappel] Finalisez votre demande de devis Neotravel';\n\nconst accroche = isFirst\n  ? 'Il semblerait que vous n\\'ayez pas terminé votre demande de devis.'\n  : 'Ceci est notre dernier rappel — votre demande vous attend toujours.';\n\nconst emailHtml = `<!DOCTYPE html><html lang=\"fr\"><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1F2937;}.header{background:linear-gradient(135deg,#1E40AF,#3B82F6);color:white;padding:24px;border-radius:10px 10px 0 0;}.logo{font-size:20px;font-weight:800;}.logo span{color:#FDE68A;}.body{background:#F9FAFB;padding:24px;border:1px solid #E5E7EB;}.btn{display:block;background:#1E40AF;color:white;text-align:center;padding:14px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin:20px 0;}.footer{background:#1F2937;color:#9CA3AF;padding:16px;border-radius:0 0 10px 10px;font-size:11px;text-align:center;}</style></head><body><div class=\"header\"><div class=\"logo\">Neo<span>travel</span></div><div style=\"opacity:.9;font-size:13px;margin-top:4px;\">Relance formulaire ${numRelance}/2</div></div><div class=\"body\"><p>Bonjour ${nomProspect},</p><br><p>${accroche}</p><p>Vous aviez commencé une demande de devis pour <strong>${trajet}</strong>. Il ne vous reste que quelques instants pour obtenir votre tarif personnalisé.</p><a href=\"https://YOUR-APP.vercel.app/devis\" class=\"btn\">Finaliser ma demande de devis</a>${numRelance === 2 ? '<p style=\"color:#DC2626;font-size:13px;\">Cette relance est la dernière. Sans réponse, votre demande sera clôturée.</p>' : ''}</div><div class=\"footer\">Neotravel SAS · contact@neotravel.fr</div></body></html>`;\n\nreturn [{ json: { ...d, email_subject: subject, email_html: emailHtml, nb_relances_form_nouveau: nbRelances + 1 } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3264,
+        560
+      ],
+      "id": "3fdf4474-1362-451a-813a-76010ff9fed5",
+      "name": "A - Build: email abandon formulaire"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer re_YqsNjqjd_6sqXaisJTCveJ7YZuwTBMVj8"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"Neotravel <onboarding@resend.dev>\",\n  \"to\": [\"{{ $json.email }}\"],\n  \"subject\": \"{{ $json.email_subject }}\",\n  \"html\": {{ JSON.stringify($json.email_html) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3056,
+        560
+      ],
+      "id": "eda340ea-a137-4c60-ace3-17ad474cff96",
+      "name": "A - Send: Relance abandon (Resend)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblOiVDXK7R0UJmIe",
+          "mode": "list",
+          "cachedResultName": "Demande (lead)"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "nb_relances_form": "={{ $json.nb_relances_form_nouveau }}",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "nb_relances_form",
+              "displayName": "nb_relances_form",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -2832,
+        560
+      ],
+      "id": "cbe2200f-1b37-4743-b236-59aa0083f3a8",
+      "name": "A - Update: nb_relances_form++",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblCrWBnUIEch5WBL",
+          "mode": "list",
+          "cachedResultName": "Devis (quote)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -4144,
+        1280
+      ],
+      "id": "929db6ff-4348-44f4-89d5-4346039958be",
+      "name": "B - Search: Devis envoyés sans réponse",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date();\ntoday.setHours(0, 0, 0, 0);\n\nconst items = $input.all();\nconst candidats = [];\n\nfor (const item of items) {\n  const d = item.json;\n  if (!d.date_envoi) continue;\n\n  const dateEnvoi = new Date(d.date_envoi);\n  dateEnvoi.setHours(0, 0, 0, 0);\n  const joursDepuisEnvoi = Math.floor((today - dateEnvoi) / 86400000);\n\n  if (joursDepuisEnvoi >= 2) {\n    candidats.push({ json: { ...d, jours_depuis_envoi: joursDepuisEnvoi } });\n  }\n}\n\nif (candidats.length === 0) {\n  return [{ json: { _aucun_candidat: true, count: 0 } }];\n}\n\nreturn candidats;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3936,
+        1280
+      ],
+      "id": "93aa36e8-358a-4b4b-8c15-44deff8a0512",
+      "name": "B - Pré-filtre: devis candidats"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-candidates",
+              "leftValue": "={{ $json._aucun_candidat }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEqual"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3712,
+        1280
+      ],
+      "id": "a8731781-4d83-4ac5-b320-ad970f406bf3",
+      "name": "B - Des relances à traiter ?"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -3488,
+        1168
+      ],
+      "id": "4b030531-78b0-4e41-a224-77ee3d0173f9",
+      "name": "B - Loop: traiter 1 devis à la fois"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblOiVDXK7R0UJmIe",
+          "mode": "list",
+          "cachedResultName": "Demande (lead)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -3264,
+        1168
+      ],
+      "id": "984e08d6-938d-4cdf-bd9e-77f8711cad54",
+      "name": "B - Get Demande by session_id",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const devis = $('B - Loop: traiter 1 devis à la fois').first().json;\nconst demande = $input.first()?.json || {};\n\nconst today = new Date();\ntoday.setHours(0, 0, 0, 0);\n\nconst dateEnvoi = new Date(devis.date_envoi);\ndateEnvoi.setHours(0, 0, 0, 0);\nconst jours = devis.jours_depuis_envoi || Math.floor((today - dateEnvoi) / 86400000);\n\nconst nbRelances = Number(devis.nb_relances || 0);\nconst urgence = (demande.urgence || 'standard').toLowerCase();\nconst isUrgent = urgence === 'urgent' || urgence === 'prioritaire';\n\nlet action = 'skip';\nif (nbRelances >= 2) {\n  action = 'cloturer';\n} else if (isUrgent) {\n  if (nbRelances === 0 && jours >= 2) action = 'relancer';\n  else if (nbRelances === 1 && jours >= 4) action = 'cloturer';\n} else {\n  if (nbRelances === 0 && jours >= 3) action = 'relancer';\n  else if (nbRelances === 1 && jours >= 7) action = 'relancer';\n}\n\nconst ref = 'NEO-' + (devis.session_id || '000000').slice(-6).toUpperCase();\nconst nomProspect = demande.nom_prospect || 'Client';\nconst villeDepart = demande.ville_depart || '—';\nconst villeDest = demande.ville_destination || '—';\nconst montantTtc = Number(devis.montant_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 });\nconst numRelance = nbRelances + 1;\n\nconst subjectRelance = numRelance === 1\n  ? `[Rappel] Votre devis Neotravel ${ref} est en attente`\n  : `[Dernière relance] Votre devis Neotravel ${ref}`;\n\nconst emailHtml = `<!DOCTYPE html><html lang=\"fr\"><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1F2937;}.header{background:linear-gradient(135deg,#1E40AF,#3B82F6);color:white;padding:24px;border-radius:10px 10px 0 0;}.logo{font-size:20px;font-weight:800;}.logo span{color:#FDE68A;}.body{background:#F9FAFB;padding:24px;border:1px solid #E5E7EB;}.devis-card{background:white;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin:16px 0;}.price{font-size:28px;font-weight:800;color:#1E40AF;}.btn{display:block;background:#F59E0B;color:white;text-align:center;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin:20px 0;}.footer{background:#1F2937;color:#9CA3AF;padding:16px;border-radius:0 0 10px 10px;font-size:11px;text-align:center;}</style></head><body><div class=\"header\"><div class=\"logo\">Neo<span>travel</span></div><div style=\"opacity:.9;font-size:13px;margin-top:4px;\">Relance ${numRelance}/2 · ${ref}</div></div><div class=\"body\"><p>Bonjour ${nomProspect},</p><br><p>Nous revenons vers vous concernant votre devis de transport en autocar <strong>${villeDepart} → ${villeDest}</strong>.</p><div class=\"devis-card\"><div style=\"font-size:12px;color:#9CA3AF;\">Référence devis</div><div style=\"font-weight:700;color:#1E40AF;\">${ref}</div><div style=\"font-size:12px;color:#9CA3AF;margin-top:8px;\">Montant TTC</div><div class=\"price\">${montantTtc} €</div></div>${numRelance === 2 ? '<p style=\"color:#DC2626;font-weight:600;\">Ce devis expire prochainement. Dernier rappel avant clôture automatique.</p>' : '<p>Ce devis vous attend toujours — n\\'hésitez pas à revenir vers nous.</p>'}<a href=\"mailto:contact@neotravel.fr?subject=Réponse devis ${ref}\" class=\"btn\">Répondre à ce devis</a></div><div class=\"footer\">Neotravel SAS · contact@neotravel.fr</div></body></html>`;\n\nreturn [{\n  json: {\n    action, session_id: devis.session_id, devis_id: devis.id, demande_id: demande.id,\n    email_subject: subjectRelance, email_html: emailHtml,\n    nb_relances_actuel: nbRelances, nb_relances_nouveau: nbRelances + 1,\n    ref, urgence, jours_depuis_envoi: jours\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3056,
+        1168
+      ],
+      "id": "72ab19aa-8b7d-4743-bcd7-1d52fa56f6b0",
+      "name": "B - Merge + Determine Action"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "relancer-cond",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "relancer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "relancer"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cloturer-cond",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "cloturer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cloturer"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2832,
+        1168
+      ],
+      "id": "0ee68b18-79c4-4558-8ef0-8068e7b1c969",
+      "name": "B - Switch: Action ?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer re_YqsNjqjd_6sqXaisJTCveJ7YZuwTBMVj8"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"Neotravel <onboarding@resend.dev>\",\n  \"to\": [\"{{ $json.email_to }}\"],\n  \"subject\": \"{{ $json.email_subject }}\",\n  \"html\": {{ JSON.stringify($json.email_html) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2608,
+        1040
+      ],
+      "id": "beda955e-2e65-4ab5-bb33-7a0fbc2b91fb",
+      "name": "B - Send Relance Email (Resend)"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbl5gY2oLy3QmUwrj",
+          "mode": "list",
+          "cachedResultName": "Relance (follow-up)"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $('B - Merge + Determine Action').first().json.session_id }}",
+            "statut": "envoyée",
+            "date_prevue": "={{ $now.toISO() }}",
+            "created_at": "={{ $now.toISO() }}",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "statut",
+              "displayName": "statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date_prevue",
+              "displayName": "date_prevue",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -2384,
+        1040
+      ],
+      "id": "2f7e522c-405b-4158-8f39-cfa821839454",
+      "name": "B - Create Relance record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblCrWBnUIEch5WBL",
+          "mode": "list",
+          "cachedResultName": "Devis (quote)"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('B - Merge + Determine Action').first().json.devis_id }}",
+            "nb_relances": "={{ $('B - Merge + Determine Action').first().json.nb_relances_nouveau }}",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "nb_relances",
+              "displayName": "nb_relances",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -2176,
+        1040
+      ],
+      "id": "e72c0a36-af65-48b0-93cb-01550a7dfcf2",
+      "name": "B - Update Devis: nb_relances++",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblCrWBnUIEch5WBL",
+          "mode": "list",
+          "cachedResultName": "Devis (quote)"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.devis_id }}",
+            "statut": "clôturé",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "statut",
+              "displayName": "statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -2608,
+        1280
+      ],
+      "id": "06c3a9b4-922c-4d8d-81f6-645c65606183",
+      "name": "B - Update Devis: statut=clôturé",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule: toutes les 5 min": {
+      "main": [
+        [
+          {
+            "node": "A - Search: Demandes non finalisées",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "B - Search: Devis envoyés sans réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Search: Demandes non finalisées": {
+      "main": [
+        [
+          {
+            "node": "A - Filtre: 5 min / 10 min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Filtre: 5 min / 10 min": {
+      "main": [
+        [
+          {
+            "node": "A - Des abandons à relancer ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Des abandons à relancer ?": {
+      "main": [
+        [
+          {
+            "node": "A - Loop: 1 prospect à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Loop: 1 prospect à la fois": {
+      "main": [
+        [
+          {
+            "node": "A - Build: email abandon formulaire",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Build: email abandon formulaire": {
+      "main": [
+        [
+          {
+            "node": "A - Send: Relance abandon (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Send: Relance abandon (Resend)": {
+      "main": [
+        [
+          {
+            "node": "A - Update: nb_relances_form++",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Update: nb_relances_form++": {
+      "main": [
+        [
+          {
+            "node": "A - Loop: 1 prospect à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Search: Devis envoyés sans réponse": {
+      "main": [
+        [
+          {
+            "node": "B - Pré-filtre: devis candidats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Pré-filtre: devis candidats": {
+      "main": [
+        [
+          {
+            "node": "B - Des relances à traiter ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Des relances à traiter ?": {
+      "main": [
+        [
+          {
+            "node": "B - Loop: traiter 1 devis à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Loop: traiter 1 devis à la fois": {
+      "main": [
+        [
+          {
+            "node": "B - Get Demande by session_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Get Demande by session_id": {
+      "main": [
+        [
+          {
+            "node": "B - Merge + Determine Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Merge + Determine Action": {
+      "main": [
+        [
+          {
+            "node": "B - Switch: Action ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Switch: Action ?": {
+      "main": [
+        [
+          {
+            "node": "B - Send Relance Email (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "B - Update Devis: statut=clôturé",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "B - Loop: traiter 1 devis à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Send Relance Email (Resend)": {
+      "main": [
+        [
+          {
+            "node": "B - Create Relance record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Create Relance record": {
+      "main": [
+        [
+          {
+            "node": "B - Update Devis: nb_relances++",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Update Devis: nb_relances++": {
+      "main": [
+        [
+          {
+            "node": "B - Loop: traiter 1 devis à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Update Devis: statut=clôturé": {
+      "main": [
+        [
+          {
+            "node": "B - Loop: traiter 1 devis à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "cec46438-46c5-48ba-a738-8dff72890bf1",
+  "meta": {
+    "instanceId": "b10d3a4ffcdadd24852b4ee009367fc76df3ddc8120a52f3cd2d636fff7e341e"
+  },
+  "nodeGroups": [],
+  "id": "506tGUKM77aueINf",
+  "tags": []
+}

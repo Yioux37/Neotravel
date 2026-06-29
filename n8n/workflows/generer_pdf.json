@@ -1,0 +1,367 @@
+{
+  "name": "generer_pdf",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "session_id"
+            },
+            {
+              "name": "nom_prospect"
+            },
+            {
+              "name": "email"
+            },
+            {
+              "name": "ville_depart"
+            },
+            {
+              "name": "ville_destination"
+            },
+            {
+              "name": "date_depart"
+            },
+            {
+              "name": "aller_retour",
+              "type": "boolean"
+            },
+            {
+              "name": "nb_passagers",
+              "type": "number"
+            },
+            {
+              "name": "montant_ht",
+              "type": "number"
+            },
+            {
+              "name": "montant_ttc",
+              "type": "number"
+            },
+            {
+              "name": "lignes_detail"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        1776,
+        560
+      ],
+      "id": "7481bbfe-6e59-4aa3-b42a-4abb7b281c71",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nconst ref = 'NEO-' + (d.session_id || '000000').slice(-6).toUpperCase();\nconst dateGen = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });\nconst dateDep = d.date_depart\n  ? new Date(d.date_depart).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })\n  : '—';\n\nconst lignesHTML = (d.lignes_detail || '').split('\\n')\n  .filter(l => l.trim())\n  .map(l => {\n    const isTotal = l.startsWith('MONTANT');\n    const bg = isTotal ? '#EEF2FF' : (l.includes('Saisonnalité') || l.includes('Date') || l.includes('Capacité') ? '#F9FAFB' : '#FFFFFF');\n    const color = isTotal ? '#1E40AF' : '#374151';\n    const weight = isTotal ? '700' : '400';\n    return `<tr><td style=\"padding:6px 14px;font-size:12px;background:${bg};color:${color};font-weight:${weight};border-bottom:1px solid #F3F4F6;\">${l}</td></tr>`;\n  }).join('');\n\nconst ht  = Number(d.montant_ht ).toLocaleString('fr-FR', { minimumFractionDigits: 2 });\nconst ttc = Number(d.montant_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2 });\n\nconst html = `<!DOCTYPE html>\n<html lang=\"fr\"><head><meta charset=\"UTF-8\"><style>\n* { margin:0;padding:0;box-sizing:border-box; }\nbody { font-family:Arial,Helvetica,sans-serif;color:#1F2937;background:#fff;padding:40px;font-size:14px; }\n.header { display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #1E40AF;margin-bottom:28px; }\n.logo { font-size:28px;font-weight:800;color:#1E40AF;letter-spacing:-1px; }\n.logo span { color:#F59E0B; }\n.logo-sub { font-size:12px;color:#6B7280;margin-top:3px; }\n.ref-block { text-align:right; }\n.ref-num { font-size:22px;font-weight:700;color:#1E40AF; }\n.ref-date { font-size:12px;color:#6B7280;margin-top:3px; }\n.grid { display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px; }\n.card { background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px; }\n.card-label { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#9CA3AF;margin-bottom:6px; }\n.card-value { font-size:15px;font-weight:600;color:#1F2937; }\n.card-sub { font-size:12px;color:#6B7280;margin-top:3px; }\n.route { display:flex;align-items:center;gap:10px; }\n.city { font-size:17px;font-weight:700;color:#1E40AF; }\n.arrow { font-size:18px;color:#9CA3AF; }\ntable { width:100%;border-collapse:collapse; }\n.section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#9CA3AF;margin-bottom:8px;margin-top:20px; }\n.price-box { background:linear-gradient(135deg,#1E40AF 0%,#3B82F6 100%);color:white;border-radius:12px;padding:24px 28px;margin:24px 0; }\n.price-ht { font-size:14px;opacity:.85; }\n.price-ttc { font-size:38px;font-weight:800;margin:8px 0 4px; }\n.price-note { font-size:12px;opacity:.7; }\n.validity { text-align:center;font-size:12px;color:#9CA3AF;margin-bottom:16px; }\n.cta { background:#F59E0B;color:white;text-align:center;padding:14px 20px;border-radius:8px;font-weight:700;font-size:14px; }\n.footer { margin-top:36px;padding-top:16px;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between;font-size:11px;color:#9CA3AF; }\n</style></head>\n<body>\n<div class=\"header\">\n  <div><div class=\"logo\">Neo<span>travel</span></div><div class=\"logo-sub\">Location d'autocars avec chauffeur</div></div>\n  <div class=\"ref-block\"><div class=\"ref-num\">DEVIS ${ref}</div><div class=\"ref-date\">Établi le ${dateGen} · Valable 30 jours</div></div>\n</div>\n<div class=\"grid\">\n  <div class=\"card\"><div class=\"card-label\">Client</div><div class=\"card-value\" style=\"font-size:17px;\">${d.nom_prospect || '—'}</div><div class=\"card-sub\">${d.email || ''}</div></div>\n  <div class=\"card\"><div class=\"card-label\">Trajet</div><div class=\"route\"><div class=\"city\">${d.ville_depart || '—'}</div><div class=\"arrow\">${d.aller_retour ? '⇄' : '→'}</div><div class=\"city\">${d.ville_destination || '—'}</div></div><div class=\"card-sub\" style=\"margin-top:8px;\">Départ : <strong>${dateDep}</strong></div></div>\n</div>\n<div class=\"grid\">\n  <div class=\"card\"><div class=\"card-label\">Passagers</div><div class=\"card-value\">${d.nb_passagers || '—'} personnes</div></div>\n  <div class=\"card\"><div class=\"card-label\">Type</div><div class=\"card-value\">${d.aller_retour ? 'Aller / Retour' : 'Aller simple'}</div></div>\n</div>\n<div class=\"section-title\">Détail tarifaire</div>\n<table>${lignesHTML}</table>\n<div class=\"price-box\"><div class=\"price-ht\">Montant HT : ${ht} €</div><div class=\"price-ttc\">${ttc} € TTC</div><div class=\"price-note\">Prix tout compris · Chauffeur inclus · Sans frais cachés</div></div>\n<div class=\"validity\">Ce devis est valable 30 jours à compter de sa date d'émission.</div>\n<div class=\"cta\">Pour accepter ce devis : répondez directement à cet email</div>\n<div class=\"footer\"><div>Neotravel SAS · contact@neotravel.fr</div><div>Réf. ${ref}</div></div>\n</body></html>`;\n\nconst BASE_URL = 'https://YOUR-APP.vercel.app'; const pdf_url = BASE_URL + '/api/devis/pdf?session_id=' + (d.session_id || ''); return [{ json: { ...d, html, ref, pdf_url } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        560
+      ],
+      "id": "a5c66926-5747-4fd1-8d65-0112035cd000",
+      "name": "Build HTML Template"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "re_drFwBbkJ_JgNV5usCkhCwXViSFeEjH6To"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "Neotravel <noreply@bahanivissiley.me>"
+            },
+            {
+              "name": "to",
+              "value": "={{ [$json.email] }}"
+            },
+            {
+              "name": "subject",
+              "value": "={{ \"Votre devis Neotravel · Réf. \" + $json.ref }}"
+            },
+            {
+              "name": "html",
+              "value": "={{ $('HTTP Request').item.json.html }}"
+            },
+            {
+              "name": "attachments",
+              "value": "={{ [{ filename: \"devis-\" + $json.ref + \".pdf\", content: $json.pdf_base64 }] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        560
+      ],
+      "id": "9a6c0c96-b472-4f1c-bc55-c5884cafafd0",
+      "name": "Send Devis Email (Resend)"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblCrWBnUIEch5WBL",
+          "mode": "list",
+          "cachedResultName": "Devis (quote)"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $('When Executed by Another Workflow').first().json.session_id }}",
+            "statut": "envoyé",
+            "date_envoi": "={{ $now.toISO() }}",
+            "updated_at": "={{ $now.toISO() }}",
+            "pdf_url": "={{ $('Build HTML Template').first().json.pdf_url }}",
+            "devis_html": "={{ $('Build HTML Template').item.json.html }}"
+          },
+          "matchingColumns": [
+            "session_id"
+          ],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "statut",
+              "displayName": "statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date_envoi",
+              "displayName": "date_envoi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "devis_html",
+              "displayName": "devis_html",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "pdf_url",
+              "displayName": "pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2832,
+        560
+      ],
+      "id": "f145f3e8-a836-4907-bc1f-17e9b34dab32",
+      "name": "Update Devis: statut=envoyé",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "sk_1906e8d4d6eb2a1d351f09de6def8d3fb7fc9f41"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "source",
+              "value": "={{ $json.html }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2224,
+        560
+      ],
+      "id": "8957797d-0d05-43cd-a763-3d05f8c8775d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const binaryData = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst base64 = binaryData.toString('base64');\n\nconst entree = $('When Executed by Another Workflow').first().json;\n\nreturn [{\n  json: {\n    ...entree,\n    pdf_base64: base64,\n    pdf_content_type: 'application/pdf',\n    pdf_filename: `devis-${(entree.session_id || '000000').slice(-6).toUpperCase()}.pdf`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2432,
+        560
+      ],
+      "id": "6b2d93b4-1f3f-44f0-b9bb-be5bd187d498",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Build HTML Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build HTML Template": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Devis Email (Resend)": {
+      "main": [
+        [
+          {
+            "node": "Update Devis: statut=envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send Devis Email (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "any"
+  },
+  "versionId": "85a0a497-61a7-4785-baf5-6f622bf64063",
+  "meta": {
+    "instanceId": "b10d3a4ffcdadd24852b4ee009367fc76df3ddc8120a52f3cd2d636fff7e341e"
+  },
+  "nodeGroups": [],
+  "id": "K3Ddr9PW4I4QGwbB",
+  "tags": []
+}

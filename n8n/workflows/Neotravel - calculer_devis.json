@@ -1,0 +1,423 @@
+{
+  "name": "Neotravel - calculer_devis",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "aller_retour",
+              "type": "boolean"
+            },
+            {
+              "name": "date_depart"
+            },
+            {
+              "name": "date_demande"
+            },
+            {
+              "name": "nb_passagers",
+              "type": "number"
+            },
+            {
+              "name": "guide_jours",
+              "type": "number"
+            },
+            {
+              "name": "nuits_chauffeur",
+              "type": "number"
+            },
+            {
+              "name": "peages",
+              "type": "number"
+            },
+            {
+              "name": "session_id"
+            },
+            {
+              "name": "ville_depart"
+            },
+            {
+              "name": "ville_destination"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        64
+      ],
+      "id": "41eb1d36-b3d5-4adf-a1f7-f55c548a146d",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB",
+          "cachedResultUrl": "https://airtable.com/appy6tq7Gl8ivIQzP"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblXvkVuttAzD7lMg",
+          "mode": "list",
+          "cachedResultName": "Matrice (pricing matrix)",
+          "cachedResultUrl": "https://airtable.com/appy6tq7Gl8ivIQzP/tblXvkVuttAzD7lMg"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1104,
+        64
+      ],
+      "id": "104031b3-b380-45cc-9541-f65d5038128b",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const REGLES_BASE = {\n  grilleForfait: [\n    { kmMax: 30, prix: 250 }, { kmMax: 40, prix: 320 }, { kmMax: 50, prix: 350 },\n    { kmMax: 60, prix: 390 }, { kmMax: 70, prix: 430 }, { kmMax: 80, prix: 500 },\n    { kmMax: 90, prix: 540 }, { kmMax: 100, prix: 580 }, { kmMax: 110, prix: 620 },\n    { kmMax: 120, prix: 660 }, { kmMax: 130, prix: 700 }, { kmMax: 140, prix: 740 },\n    { kmMax: 150, prix: 780 }, { kmMax: 160, prix: 820 }, { kmMax: 170, prix: 860 },\n    { kmMax: 180, prix: 900 },\n  ],\n  seuilForfait: 180,\n  facteurTrajetVehicule: 2,\n  tarifKmAuDela: 2.5,\n  capaciteMaxAuto: 85,\n  modeCoefficients: \"multiplicatif\",\n};\n\nconst MOIS_NIVEAU = {\n  1: \"basse\", 2: \"basse\", 8: \"basse\", 11: \"basse\",\n  9: \"moyenne\", 10: \"moyenne\", 12: \"moyenne\",\n  3: \"haute\", 4: \"haute\", 7: \"haute\",\n  5: \"tres_haute\", 6: \"tres_haute\",\n};\n\nconst round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;\nfunction joursEntre(d1, d2) { return Math.round((new Date(d2) - new Date(d1)) / 86400000); }\nfunction baseTransfertSimple(km, r) {\n  if (km <= r.seuilForfait) {\n    const p = r.grilleForfait.find((g) => km <= g.kmMax);\n    return (p || r.grilleForfait[0]).prix;\n  }\n  return km * r.facteurTrajetVehicule * r.tarifKmAuDela;\n}\n\nfunction buildRegles(rows) {\n  const get = (type, val) => {\n    const r = rows.find((x) => x.type_critere === type && x.valeur_critere === val);\n    if (!r || r.coefficient == null) {\n      throw new Error(`Règle manquante dans la Matrice : ${type}/${val}`);\n    }\n    return r.coefficient;\n  };\n\n  const saisonnalite = {};\n  for (const [mois, niveau] of Object.entries(MOIS_NIVEAU)) {\n    saisonnalite[mois] = { niveau, coef: get(\"saison\", niveau) };\n  }\n\n  const dateDepart = [\n    { joursMax: 14, code: \"DD_PRIORITAIRE\", coef: get(\"date_depart\", \"DD_PRIORITAIRE\") },\n    { joursMax: 30, code: \"DD_URGENT\", coef: get(\"date_depart\", \"DD_URGENT\") },\n    { joursMax: 90, code: \"DD_NORMAL\", coef: get(\"date_depart\", \"DD_NORMAL\") },\n    { joursMax: Infinity, code: \"DD_3MOISETPLUS\", coef: get(\"date_depart\", \"DD_3MOISETPLUS\") },\n  ];\n\n  const capacite = [\n    { paxMax: 19, coef: get(\"capacite\", \"<=19\") },\n    { paxMax: 53, coef: get(\"capacite\", \"19-53\") },\n    { paxMax: 63, coef: get(\"capacite\", \"53-63\") },\n    { paxMax: 67, coef: get(\"capacite\", \"63-67\") },\n    { paxMax: 85, coef: get(\"capacite\", \"67-85\") },\n  ];\n\n  return {\n    ...REGLES_BASE,\n    saisonnalite,\n    dateDepart,\n    capacite,\n    tarifGuideParJour: get(\"option\", \"guide_par_jour\"),\n    tarifNuitChauffeur: get(\"option\", \"nuit_chauffeur\"),\n    marge: get(\"option\", \"marge\"),\n    tva: get(\"option\", \"tva\"),\n  };\n}\n\nfunction calculerDevis(entree, regles) {\n  const {\n    distance_km, aller_retour = false, date_depart,\n    date_demande = new Date().toISOString().slice(0, 10),\n    nb_passagers, guide_jours = 0, nuits_chauffeur = 0, peages = 0,\n  } = entree || {};\n\n  const manquants = [];\n  if (!(distance_km > 0)) manquants.push(\"distance_km\");\n  if (!date_depart) manquants.push(\"date_depart\");\n  if (!(nb_passagers > 0)) manquants.push(\"nb_passagers\");\n  if (manquants.length) {\n    return { status: \"erreur\", raison: `Données manquantes/invalides : ${manquants.join(\", \")}` };\n  }\n\n  if (nb_passagers > regles.capaciteMaxAuto) {\n    return { status: \"manuel\", raison: `Capacité ${nb_passagers} > ${regles.capaciteMaxAuto} passagers — envoi au commercial (flux manuel).` };\n  }\n\n  const baseSimple = baseTransfertSimple(distance_km, regles);\n  const baseTrajet = aller_retour ? baseSimple * 2 : baseSimple;\n\n  const mois = new Date(date_depart).getMonth() + 1;\n  const saison = regles.saisonnalite[mois] || { niveau: \"inconnue\", coef: 0 };\n  const jours = joursEntre(date_demande, date_depart);\n  const regleDate = regles.dateDepart.find((r) => jours <= r.joursMax);\n  const regleCap = regles.capacite.find((c) => nb_passagers <= c.paxMax);\n\n  const s = saison.coef, d = regleDate.coef, c = regleCap.coef;\n\n  let transportAjuste;\n  if (regles.modeCoefficients === \"additif\") transportAjuste = baseTrajet * (1 + s + d + c);\n  else transportAjuste = baseTrajet * (1 + s) * (1 + d) * (1 + c);\n\n  const optGuide = guide_jours * regles.tarifGuideParJour;\n  const optNuit = nuits_chauffeur * regles.tarifNuitChauffeur;\n  const optionsTotal = optGuide + optNuit + peages;\n  const sousTotal = transportAjuste + optionsTotal;\n\n  const montantHt = sousTotal * (1 + regles.marge);\n  const montantTva = montantHt * regles.tva;\n  const montantTtc = montantHt + montantTva;\n\n  const pct = (x) => `${x >= 0 ? \"+\" : \"\"}${(x * 100).toFixed(0)}%`;\n  const lignes_detail = [\n    `Base transfert simple (${distance_km} km) : ${round2(baseSimple)} €`,\n    aller_retour ? `Aller/retour (x2) : ${round2(baseTrajet)} €` : `Aller simple : ${round2(baseTrajet)} €`,\n    `Saisonnalité (${saison.niveau}) : ${pct(s)}`,\n    `Date demande/départ (${regleDate.code}, ${jours} j) : ${pct(d)}`,\n    `Capacité (${nb_passagers} pax) : ${pct(c)}`,\n    `Transport ajusté : ${round2(transportAjuste)} €`,\n    optGuide ? `Guide : ${guide_jours} j x ${regles.tarifGuideParJour} € = ${round2(optGuide)} €` : null,\n    optNuit ? `Nuit(s) chauffeur : ${nuits_chauffeur} x ${regles.tarifNuitChauffeur} € = ${round2(optNuit)} €` : null,\n    peages ? `Péages (forfait) : ${round2(peages)} €` : null,\n    `Sous-total HT avant marge : ${round2(sousTotal)} €`,\n    `Marge (${pct(regles.marge)}) : ${round2(montantHt - sousTotal)} €`,\n    `MONTANT HT : ${round2(montantHt)} €`,\n    `TVA (${pct(regles.tva)}) : ${round2(montantTva)} €`,\n    `MONTANT TTC : ${round2(montantTtc)} €`,\n  ].filter(Boolean).join(\"\\n\");\n\n  return {\n    status: \"ok\",\n    montant_ht: round2(montantHt),\n    montant_ttc: round2(montantTtc),\n    montant_tva: round2(montantTva),\n    detail: {\n      distance_km, aller_retour,\n      base_simple: round2(baseSimple), base_trajet: round2(baseTrajet),\n      saison: { niveau: saison.niveau, coef: s },\n      date: { code: regleDate.code, coef: d, jours_avant_depart: jours },\n      capacite: { coef: c },\n      transport_ajuste: round2(transportAjuste),\n      options: { guide: round2(optGuide), nuit_chauffeur: round2(optNuit), peages: round2(peages), total: round2(optionsTotal) },\n      sous_total_ht: round2(sousTotal),\n      marge_montant: round2(montantHt - sousTotal),\n    },\n    lignes_detail,\n  };\n}\n\n// ================= EXÉCUTION DANS n8n =================\n// 1) Lignes de la Matrice depuis Airtable\nconst matriceRows = $('Search records').all().map((i) => i.json);\n\n// 2) Données du trajet depuis le trigger\nconst entree = $('When Executed by Another Workflow').first().json;\n\n// 3) Distance depuis le sous-workflow calculer_distance\nconst distanceData = $(\"Call 'calculer_distance'\").first().json;\nentree.distance_km = distanceData.distance_km;\n\n// 4) Garde-fou : si la distance est absente ou invalide, on stoppe proprement\nif (!entree.distance_km || entree.distance_km <= 0) {\n  return [{ json: { status: \"erreur\", raison: \"Distance non calculée (ville introuvable ?)\" } }];\n}\n\n// 5) Construit les règles + calcule\nconst regles = buildRegles(matriceRows);\nconst resultat = calculerDevis(entree, regles);\n\nreturn [{ json: resultat }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        64
+      ],
+      "id": "189e5477-4851-4dbf-8f9c-dd70089d27f5",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "appy6tq7Gl8ivIQzP",
+          "mode": "list",
+          "cachedResultName": "neotravel_DB",
+          "cachedResultUrl": "https://airtable.com/appy6tq7Gl8ivIQzP"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblCrWBnUIEch5WBL",
+          "mode": "list",
+          "cachedResultName": "Devis (quote)",
+          "cachedResultUrl": "https://airtable.com/appy6tq7Gl8ivIQzP/tblCrWBnUIEch5WBL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "montant_ht": "={{ $json.montant_ht }}",
+            "montant_ttc": "={{ $json.montant_ttc }}",
+            "nb_relances": 0,
+            "session_id": "={{ $('When Executed by Another Workflow').first().json.session_id }}",
+            "created_at": "={{ $now.toISO() }}",
+            "updated_at": "={{ $now.toISO() }}",
+            "statut": "calculé",
+            "ligne_detail": "={{ $json.lignes_detail }}"
+          },
+          "matchingColumns": [
+            "session_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "devis id",
+              "displayName": "devis id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "demande_id",
+              "displayName": "demande_id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "montant_ht",
+              "displayName": "montant_ht",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "montant_ttc",
+              "displayName": "montant_ttc",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "statut",
+              "displayName": "statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "nb_relances",
+              "displayName": "nb_relances",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "pdf_url",
+              "displayName": "pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date_envoi",
+              "displayName": "date_envoi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Relance (follow-up)",
+              "displayName": "Relance (follow-up)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ligne_detail",
+              "displayName": "ligne_detail",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        64
+      ],
+      "id": "7d1641cb-f4b7-466f-9759-4f45af4d7c45",
+      "name": "Create or update a record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "EkDlcFaGMNC3Ufub",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "bwBK19lTNisot47s",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/bwBK19lTNisot47s",
+          "cachedResultName": "calculer_distance"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ville_depart": "={{ $('When Executed by Another Workflow').first().json.ville_depart }}",
+            "ville_destination": "={{ $('When Executed by Another Workflow').first().json.ville_destination }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ville_depart",
+              "displayName": "ville_depart",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ville_destination",
+              "displayName": "ville_destination",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        64
+      ],
+      "id": "9f550ef2-eb24-483b-bffd-4b72b4be7092",
+      "name": "Call 'calculer_distance'"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Call 'calculer_distance'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Create or update a record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'calculer_distance'": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "bacbeb78-1754-4b2b-a971-21184015b12c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b10d3a4ffcdadd24852b4ee009367fc76df3ddc8120a52f3cd2d636fff7e341e"
+  },
+  "nodeGroups": [],
+  "id": "zz1YKc9BMLsocd3K",
+  "tags": []
+}
