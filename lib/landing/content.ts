@@ -59,11 +59,13 @@ export interface Vehicule {
   usages: string;
   confort: string;
   equipements: string;
+  href: string;
 }
 
 export const FLOTTE: Vehicule[] = [
   {
     nom: "Minibus",
+    href: "/minibus",
     capacite: "Jusqu'à 25 places",
     img: "https://www.autocar-location.com/wp-content/themes/autocar-theme/assets/images/minibus.jpg",
     usages: "Navettes, petits groupes, gares.",
@@ -72,6 +74,7 @@ export const FLOTTE: Vehicule[] = [
   },
   {
     nom: "Minicar",
+    href: "/minicar",
     capacite: "25 à 35 places",
     img: "https://www.autocar-location.com/wp-content/themes/autocar-theme/assets/images/minicar.jpg",
     usages: "Excursions, groupes loisirs, scolaires.",
@@ -80,6 +83,7 @@ export const FLOTTE: Vehicule[] = [
   },
   {
     nom: "Autocar Standard",
+    href: "/autocar",
     capacite: "49 à 63 places",
     img: "https://www.autocar-location.com/wp-content/themes/autocar-theme/assets/images/autocar.jpg",
     usages: "Séminaires, CE, grands groupes, Europe.",
@@ -88,6 +92,7 @@ export const FLOTTE: Vehicule[] = [
   },
   {
     nom: "Autocar Double Étage",
+    href: "/autocar-double-etage",
     capacite: "Jusqu'à 93 places",
     img: "https://www.autocar-location.com/wp-content/themes/autocar-theme/assets/images/autocar-double-etage.jpg",
     usages: "Très grands groupes, voyages scolaires.",
@@ -96,6 +101,7 @@ export const FLOTTE: Vehicule[] = [
   },
   {
     nom: "Berline VTC",
+    href: "/berline-vtc",
     capacite: "1 à 7 places VIP",
     img: "https://www.autocar-location.com/wp-content/themes/autocar-theme/assets/images/berline.jpg",
     usages: "Dirigeants, accueil VIP, transferts premium.",

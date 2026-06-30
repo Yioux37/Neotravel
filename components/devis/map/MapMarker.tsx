@@ -4,6 +4,7 @@ import type { Etape } from "@/lib/devis/types";
 import { ETAPE_STYLE } from "./etapeStyle";
 import { MarkerTooltip } from "./MarkerTooltip";
 
+
 interface MapMarkerProps {
   etape: Etape;
   selected: boolean;

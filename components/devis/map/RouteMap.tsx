@@ -1,56 +1,90 @@
 "use client";
 
-import type { Itineraire } from "@/lib/devis/types";
-import { TRACE_COLOR } from "./etapeStyle";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
-/**
- * Tracé vectoriel reliant les étapes. viewBox 0..100 + preserveAspectRatio="none"
- * pour que les coordonnées 0..100 des étapes correspondent exactement aux
- * marqueurs HTML positionnés en %. vector-effect évite la déformation du trait.
- */
-export function RouteMap({ itineraire }: { itineraire: Itineraire }) {
-  const { etapes, type } = itineraire;
-  if (etapes.length < 2) return null;
+// 🛠️ Répare le bug des icônes Leaflet invisibles dans Next.js
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: string })._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
-  const points = etapes.map((e) => `${e.x},${e.y}`);
-  // Circuit : on referme la boucle vers le départ.
-  const d =
-    "M " +
-    points.join(" L ") +
-    (type === "circuit" ? ` L ${etapes[0].x},${etapes[0].y}` : "");
+// MARQUEURS STYLISÉS (A et D comme sur ton image)
+const iconStart = L.divIcon({
+  html: `<div class="w-7 h-7 bg-slate-800 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">A</div>`,
+  className: "",
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
 
-  const color = TRACE_COLOR[type];
+const iconEnd = L.divIcon({
+  html: `<div class="w-7 h-7 bg-emerald-500 text-white font-black rounded-full flex items-center justify-center border-2 border-white shadow-md text-xs">B</div>`,
+  className: "",
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
+
+interface RouteMapProps {
+  routeCoords: [number, number][];
+  startPoint?: { name: string; coords: [number, number] };
+  endPoint?: { name: string; coords: [number, number] };
+}
+
+function MapBounds({ coords }: { coords: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords && coords.length > 0) {
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [coords, map]);
+  return null;
+}
+
+export function RouteMap({ routeCoords, startPoint, endPoint }: RouteMapProps) {
+  const defaultCenter: [number, number] = [46.2276, 2.2137];
 
   return (
-    <svg
-      className="absolute inset-0 h-full w-full"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      aria-hidden
+    <MapContainer
+      center={startPoint?.coords || defaultCenter}
+      zoom={6}
+      style={{ height: "100%", width: "100%", zIndex: 0 }}
+      zoomControl={false}
     >
-      {/* Halo doux sous le tracé */}
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.12}
-        vectorEffect="non-scaling-stroke"
+      <TileLayer
+        attribution='&copy; OpenStreetMap'
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
-      {/* Tracé pointillé animé */}
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray="6 8"
-        vectorEffect="non-scaling-stroke"
-        className="animate-dash"
-      />
-    </svg>
+
+      {/* LIGNE EN POINTILLÉS NOIRS EXACTEMENT COMME TON IMAGE */}
+      {routeCoords && routeCoords.length > 0 && (
+        <>
+          <Polyline 
+            positions={routeCoords} 
+            color="#3326ef" 
+            weight={4} 
+            opacity={0.9} 
+            dashArray="8, 8" 
+          />
+          <MapBounds coords={routeCoords} />
+        </>
+      )}
+
+      {startPoint && (
+        <Marker position={startPoint.coords} icon={iconStart}>
+          <Popup><strong>Départ:</strong> {startPoint.name}</Popup>
+        </Marker>
+      )}
+
+      {endPoint && (
+        <Marker position={endPoint.coords} icon={iconEnd}>
+          <Popup><strong>Arrivée:</strong> {endPoint.name}</Popup>
+        </Marker>
+      )}
+    </MapContainer>
   );
 }

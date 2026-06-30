@@ -4,7 +4,10 @@ import { FLOTTE, type Vehicule } from "@/lib/landing/content";
 
 function VehiculeCard({ v }: { v: Vehicule }) {
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition-all duration-500 hover:-translate-y-2 hover:border-lime-400/50 hover:shadow-xl">
+    <Link 
+      href={v.href} 
+      className="group flex h-full flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition-all duration-500 hover:-translate-y-2 hover:border-lime-400/50 hover:shadow-xl block"
+    >
       <div className="overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -36,18 +39,16 @@ function VehiculeCard({ v }: { v: Vehicule }) {
             {v.equipements}
           </p>
         </div>
-        <Link
-          href="/devis"
-          className="mt-6 flex w-max items-center gap-2 text-sm font-bold text-gray-900 transition-colors hover:text-lime-600"
-        >
+        {/* L'ancien lien devient une simple div qui réagit au survol de la carte (group-hover) */}
+        <div className="mt-6 flex w-max items-center gap-2 text-sm font-bold text-gray-900 transition-colors group-hover:text-lime-600">
           Découvrir
           <ArrowRight
             className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
             aria-hidden
           />
-        </Link>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 

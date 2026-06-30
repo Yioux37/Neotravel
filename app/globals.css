@@ -2,114 +2,38 @@
 
 /* ================================================================== *
  * NeoTravel — système de design
- * ------------------------------------------------------------------ *
- * Deux surfaces :
- *  - Landing (existant) : navy/ambre, motif "ligne d'itinéraire".
- *  - Funnel /devis (DA v2) : slate-950 + lime fluo + couleurs
- *    sémantiques de cartographie (RSE).
- * Les tokens v2 sont ADDITIFS : rien ne casse sur la landing.
  * ================================================================== */
 
 @theme {
-  /* ---- Landing (v1) ---- */
-  --color-ink: #0e1b2c;
-  --color-ink-soft: #1c2f45;
-  --color-paper: #f7f5f0;
-  --color-surface: #ffffff;
-  --color-route: #e4933b;
-  --color-route-deep: #c9772a;
-  --color-slate: #51606e;
-  --color-mist: #e4e8ec;
-  --color-signal: #2f8f6b;
-
-  /* ---- DA v2 (funnel /devis) ---- */
-  /* On aligne le slate-950 de Tailwind sur la valeur DA (#0f1115 au lieu de
-     #020617) pour que la landing (bg-slate-950) et le funnel (bg-night)
-     partagent exactement le même noir. */
   --color-slate-950: #0f1115;
-  --color-night: #0f1115;       /* alias sémantique utilisé par le funnel */
-  --color-night-soft: #1a1d24;  /* surfaces sombres secondaires */
-  --color-cloud: #f7f6f3;       /* off-white premium (fond principal v2) */
+  --color-night: #0f1115;       
+  --color-night-soft: #1a1d24;  
+  --color-cloud: #f7f6f3;       
   --color-gray50: #f9fafb;
-  --color-line: #e9eaee;        /* filets clairs v2 */
-  --color-lime: #a3e635;        /* accent primaire (actions, badges IA) */
-  --color-lime-deep: #65a30d;   /* contraste AA sur fond clair / hover */
+  --color-line: #e9eaee;        
+  --color-lime: #a3e635;        
+  --color-lime-deep: #65a30d;   
 
   /* Couleurs sémantiques cartographie & RSE */
-  --color-aller: #38bdf8;       /* tracé aller simple */
-  --color-circuit: #c084fc;     /* tracé circuit */
-  --color-dest: #ef4444;        /* destination / étape clé */
-  --color-rse: #10b981;         /* validation / sécurité RSE */
-  --color-pause: #f59e0b;       /* pause chauffeur 45 min */
-  --color-nuit: #4f46e5;        /* hébergement / nuitée 11h */
-
-  /* Typo */
-  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --color-aller: #38bdf8;       
+  --color-circuit: #c084fc;     
+  --color-dest: #ef4444;        
+  --color-rse: #10b981;         
+  --color-pause: #f59e0b;       
+  --color-nuit: #4f46e5;        
 
   --radius-card: 18px;
 }
 
-:root {
-  --background: var(--color-paper);
-  --foreground: var(--color-ink);
-}
-
-html { -webkit-text-size-adjust: 100%; }
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
+  background: var(--color-cloud);
+  color: var(--color-slate-950);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-lime-deep);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
+/* ---- Animations de la Carte ---- */
+@keyframes dash { to { stroke-dashoffset: -1000; } }
+.animate-dash { animation: dash 30s linear infinite !important; }
 
-/* ---- Signature landing : ligne d'itinéraire ---- */
-.route-line { display: flex; align-items: center; gap: 10px; }
-.route-line::before,
-.route-line::after {
-  content: ""; width: 9px; height: 9px; border-radius: 9999px;
-  background: var(--color-route); flex: none;
-}
-.route-line .route-track {
-  flex: 1; height: 0;
-  border-top: 2px dashed color-mix(in oklab, var(--color-route) 55%, transparent);
-}
-@keyframes route-draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.route-track--animated { transform-origin: left center; animation: route-draw 900ms cubic-bezier(0.22,1,0.36,1) both; }
-
-/* ---- Chat (commun) ---- */
-@keyframes msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.msg-in { animation: msg-in 260ms ease-out both; }
-@keyframes typing-bounce { 0%,80%,100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
-
-/* ---- Carte /devis : tracé animé + atmosphère ---- */
-@keyframes dash-move { to { stroke-dashoffset: -24; } }
-.animate-dash { animation: dash-move 1s linear infinite; }
-
-@keyframes soft-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
-.animate-soft-pulse { animation: soft-pulse 2.4s ease-in-out infinite; }
-
-/* Grille de fond discrète pour le panneau carte */
-.map-grid {
-  background-image:
-    radial-gradient(circle at center, color-mix(in oklab, var(--color-night) 8%, transparent) 1px, transparent 1px);
-  background-size: 22px 22px;
-}
-
-/* Respect du réglage système : coupe le mouvement */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
